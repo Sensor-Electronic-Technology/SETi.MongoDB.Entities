@@ -1,0 +1,38 @@
+name: Publish SETi Nuget Package
+on:
+  push:
+    tags:
+      - v*
+    branches:
+      = master
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .Net SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+          source-url: https://nuget.pkg.github.com/Sensor-Electronic-Technology/index.json
+        env:
+          NUGET_AUTH_TOKEN: ${{ secrets.NUGET_TOKEN }}
+      - name: Make Nuget Packages
+        run: dotnet pack MongoDB.Entities/MongoDB.Entities.csproj -c Release
+      - name: Publish To Nuget
+        run: dotnet nuget push MongoDB.Entities/bin/Release/*.nupkg --skip-duplicate
+
+      # - name: Create Release
+      #   uses: softprops/action-gh-release@v2
+      #   if: startsWith(github.ref, 'refs/tags/')
+      #   with:
+      #     files: changelog.md
+      #   env:
+      #     GITHUB_TOKEN: ${{secrets.RELEASE_ACTION_TOKEN}}
+        # uses: softprops/action-gh-release@v1
+        # if: ${{ !contains(github.ref, 'beta') }}
+        # with:
+        #   draft: false
+        #   name: ${{ github.ref_name }} Release
+        #   body_path: changelog.md
