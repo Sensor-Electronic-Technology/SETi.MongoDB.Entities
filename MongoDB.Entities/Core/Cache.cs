@@ -1,12 +1,11 @@
-﻿using System;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Driver;
+using Expression = System.Linq.Expressions.Expression;
 
 namespace MongoDB.Entities;
 
@@ -18,6 +17,10 @@ static class Cache<T> where T : IEntity
     internal static bool HasCreatedOn { get; private set; }
     internal static bool HasModifiedOn { get; private set; }
     internal static string ModifiedOnPropName { get; private set; } = null!;
+    internal static DocumentTypeConfiguration? TypeConfiguration { get; set; }
+    internal static ConcurrentDictionary<string,EmbeddedTypeConfiguration?> EmbeddedEntities { get; private set; } = [];
+    internal static bool IsDocumentEntity { get; private set; }
+    internal static bool HasEmbeddedEntity { get; private set; }
     internal static PropertyInfo? ModifiedByProp { get; private set; }
     internal static bool HasIgnoreIfDefaultProps { get; private set; }
     internal static string IdPropName { get; private set; } = null!;
@@ -27,6 +30,7 @@ static class Cache<T> where T : IEntity
     internal static Action<object, object> IdSetter { get; private set; } = null!;
     internal static Func<object, object> IdGetter { get; private set; } = null!;
     internal static object IdDefaultValue { get; private set; } = null!;
+    
 
     static PropertyInfo[] _updatableProps = [];
     static ProjectionDefinition<T>? _requiredPropsProjection;
@@ -71,6 +75,9 @@ static class Cache<T> where T : IEntity
         var interfaces = type.GetInterfaces();
         HasCreatedOn = interfaces.Any(i => i == typeof(ICreatedOn));
         HasModifiedOn = interfaces.Any(i => i == typeof(IModifiedOn));
+        IsDocumentEntity=interfaces.Any(i => i == typeof(IDocumentEntity));
+        HasEmbeddedEntity = interfaces.Any(i => i == typeof(IHasEmbedded));
+        
         ModifiedOnPropName = nameof(IModifiedOn.ModifiedOn);
 
         _updatableProps = type.GetProperties()
@@ -98,6 +105,7 @@ static class Cache<T> where T : IEntity
             throw new InvalidOperationException("Multiple [ModifiedBy] properties are not allowed on entities!");
         }
     }
+    
 
     internal static IEnumerable<PropertyInfo> UpdatableProps(T entity)
     {

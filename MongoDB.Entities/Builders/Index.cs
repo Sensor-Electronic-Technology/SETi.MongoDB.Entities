@@ -112,10 +112,8 @@ public class Index<T>(DB db) where T : IEntity
     /// </summary>
     /// <param name="propertyToIndex">x => x.PropertyName</param>
     /// <param name="type">The type of the key</param>
-    public Index<T> Key(Expression<Func<T, object?>> propertyToIndex, KeyType type)
-    {
+    public Index<T> Key(Expression<Func<T, object?>> propertyToIndex, KeyType type) {
         Keys.Add(new(propertyToIndex, type));
-
         return this;
     }
 

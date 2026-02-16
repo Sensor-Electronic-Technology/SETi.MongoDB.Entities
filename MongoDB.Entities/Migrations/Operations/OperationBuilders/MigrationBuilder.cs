@@ -1,0 +1,92 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace MongoDB.Entities;
+
+public class MigrationBuilder {
+    public virtual List<FieldOperation> Operations { get; } = [];
+    
+    public Dictionary<Type,List<FieldOperation>> FieldOperations { get; } = new();
+    
+    public virtual OperationBuilder<AddFieldOperation> AddField(Field field) {
+        var operation = new AddFieldOperation {
+            Field = field,
+            IsDestructive = false
+        };
+        Operations.Add(operation);
+        return new(operation);
+    }
+
+    /*public OperationBuilder<AddFieldOperation> AddField<TConfig>(Field field) where TConfig : TypeConfiguration {
+        var operation = new AddFieldOperation() {
+            Field = field,
+            IsDestructive = false
+        };
+        this.FieldOperations[typeof(TConfig)] = [];
+        this.FieldOperations[typeof(TConfig)].Add(operation);
+        return new(operation);
+    }*/
+
+    public virtual OperationBuilder<DropFieldOperation> DropField(Field field) {
+        var operation = new DropFieldOperation {
+            Field = field,
+            IsDestructive = true
+        };
+        Operations.Add(operation);
+        return new(operation);
+    }
+    
+    public virtual OperationBuilder<AlterFieldOperation> AlterField(Field field, Field oldField) {
+        var operation = new AlterFieldOperation {
+            Field = field,
+            OldField = oldField,
+            IsDestructive = true
+        };
+        Operations.Add(operation);
+        return new(operation);
+    }
+    
+    public virtual DocumentMigration Build(DocumentTypeConfiguration documentTypeConfig,int migrationNumber) {
+        DocumentMigration migration = new DocumentMigration {
+            MigratedOn = DateTime.MinValue.ToUniversalTime(),
+            IsMigrated = false,
+            MigrationNumber = 0,
+        };
+        migration.Build(this);
+        bool major=migration.UpOperations.OfType<AddFieldOperation>().Any();
+        major= major || migration.UpOperations.OfType<DropFieldOperation>().Any();
+        if (major) {
+            migration.Version=documentTypeConfig.DocumentVersion.IncrementMajor();
+            migration.IsMajorVersion = true;
+        } else {
+            migration.Version=documentTypeConfig.DocumentVersion.Increment();
+            migration.IsMajorVersion=migration.Version.Major>documentTypeConfig.DocumentVersion.Major;
+        }
+        migration.TypeConfiguration = documentTypeConfig.ToReference();
+        migration.MigrationNumber = ++migrationNumber;
+        return migration;
+    }
+    
+    public virtual EmbeddedMigration Build(EmbeddedTypeConfiguration typeConfig,int migrationNumber,string parentTypeName) {
+        EmbeddedMigration migration = new EmbeddedMigration() {
+            MigratedOn = DateTime.MinValue.ToUniversalTime(),
+            IsMigrated = false,
+            MigrationNumber = 0,
+        };
+        migration.Build(this);
+        bool major=migration.UpOperations.OfType<AddFieldOperation>().Any();
+        major= major || migration.UpOperations.OfType<DropFieldOperation>().Any();
+        if (major) {
+            migration.Version=typeConfig.DocumentVersion.IncrementMajor();
+            migration.IsMajorVersion = true;
+        } else {
+            migration.Version=typeConfig.DocumentVersion.Increment();
+            migration.IsMajorVersion=migration.Version.Major>typeConfig.DocumentVersion.Major;
+        }
+        migration.EmbeddedTypeConfiguration = typeConfig.ToReference();
+        migration.MigrationNumber = ++migrationNumber;
+        migration.ParentTypeName = parentTypeName;
+        return migration;
+    }
+}

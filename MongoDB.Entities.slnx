@@ -5,6 +5,7 @@
     <File Path="README.md" />
   </Folder>
   <Project Path="Benchmark/Benchmark.csproj" />
+  <Project Path="ConsoleTest/ConsoleTest.csproj" />
   <Project Path="MongoDB.Entities/MongoDB.Entities.csproj" />
   <Project Path="Tests/Tests.csproj" />
 </Solution>

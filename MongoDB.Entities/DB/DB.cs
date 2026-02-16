@@ -1,7 +1,11 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
+using JetBrains.Annotations;
+using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Conventions;
@@ -20,6 +24,7 @@ public partial class DB
     {
         BsonSerializer.RegisterSerializer(new DateSerializer());
         BsonSerializer.RegisterSerializer(new FuzzyStringSerializer());
+        BsonSerializer.RegisterSerializer(new DocumentVersionSerializer());
         BsonSerializer.RegisterSerializer(typeof(decimal), new DecimalSerializer(BsonType.Decimal128));
         BsonSerializer.RegisterSerializer(typeof(decimal?), new NullableSerializer<decimal>(new DecimalSerializer(BsonType.Decimal128)));
 
@@ -40,6 +45,8 @@ public partial class DB
     static MongoClientSettings _defaultClientSettings = null!; // to be set on first InitAsync call
     static DB _defaultInstance = null!;                        // to be set on first InitAsync call
     readonly IMongoDatabase _mongoDb;
+    private static readonly ILogger _logger = AppLogger.CreateLogger("DB");
+    public static bool LoggingEnabled { get; set; }
 
     protected DB(DB source)
     {
@@ -81,7 +88,8 @@ public partial class DB
     public static async Task<DB> InitAsync(string dbName,
                                            MongoClientSettings? clientSettings = null,
                                            MongoDatabaseSettings? databaseSettings = null,
-                                           bool skipNetworkPing = false)
+                                           bool skipNetworkPing = false,
+                                           bool enableLogging=false)
     {
         if (clientSettings == null)
         {
@@ -89,6 +97,8 @@ public partial class DB
                                  ? new() { Server = new("127.0.0.1", 27017) }
                                  : _defaultClientSettings;
         }
+        
+        LoggingEnabled = enableLogging;
 
         if (string.IsNullOrEmpty(dbName))
             throw new ArgumentNullException(nameof(dbName), "Database name cannot be empty!");
@@ -129,7 +139,7 @@ public partial class DB
 
         return db;
     }
-
+    
     /// <summary>
     /// Gets a list of all database names from the server
     /// </summary>
@@ -273,4 +283,28 @@ public partial class DB
     /// <typeparam name="T">Any entity that implements IEntity</typeparam>
     protected virtual Action<UpdateBase<T>>? OnBeforeUpdate<T>() where T : IEntity
         => null;
+    
+    /// <summary>
+    /// Internal logger for DB
+    /// </summary>
+    /// <param name="logLevel"></param>
+    /// <param name="message"></param>
+    /// <param name="exception"></param>
+    /// <param name="args"></param>
+    private static void Log(LogLevel logLevel,
+                            [StructuredMessageTemplate] string message,
+                            Exception exception,
+                            params object[] args) {
+        if (LoggingEnabled) {
+            _logger.Log(logLevel: logLevel, message: message, exception: exception, args: args);
+        }
+    }
+
+    private static void Log(LogLevel logLevel, 
+                            [StructuredMessageTemplate] string message, 
+                            params object[] args) {
+        if (LoggingEnabled) {
+            _logger.Log(logLevel: logLevel, message: message, args: args);
+        }
+    }
 }
