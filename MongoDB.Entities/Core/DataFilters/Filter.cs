@@ -8,6 +8,7 @@ public class Filter {
     public string FilterLogicalOperator { get; set; } = LogicalOperator.And.Value;
     public object Value { get; set; } = null!;
     public ICollection<Filter>? Filters { get; set; } = [];
+
     public override string ToString() {
         return "e=>"+BuildFilterString(this);
     }

@@ -10,7 +10,6 @@ using NCalcExtensions;
 namespace MongoDB.Entities;
 
 public partial class DB {
-    
 #region ApplyMigration
 
     public async Task ApplyMigrations() {
@@ -23,10 +22,12 @@ public partial class DB {
         foreach (var migration in migrations) {
             switch (migration) {
                 case EmbeddedMigration embMigration:
-                    await ApplyMigrationsEmbedded(embMigration);
+                    await ApplyEmbeddedMigrations(embMigration);
+
                     break;
                 case DocumentMigration docMigration:
                     await ApplyDocumentMigrations(docMigration);
+
                     break;
             }
         }
@@ -47,6 +48,7 @@ public partial class DB {
             typeConfig.TypeName,
             migration.MigrationNumber);
         var collection = Collection(typeConfig.DatabaseName, typeConfig.CollectionName);
+
         //Instance(typeConfig.DatabaseName).Database().GetCollection<BsonDocument>(typeConfig.CollectionName);
         var cursor = await collection.FindAsync(
                          new BsonDocument(),
@@ -110,18 +112,21 @@ public partial class DB {
 
         typeConfig.DocumentVersion = migration.Version;
         typeConfig.UpdateAvailableProperties();
+
         //await typeConfig.SaveAsync();
         await _defaultInstance.SaveAsync(typeConfig);
         migration.IsMigrated = true;
+
         //await migration.SaveAsync();
         await _defaultInstance.SaveAsync(migration);
         await collection.BulkWriteAsync(updates);
         Log(LogLevel.Information, "Migration completed");
     }
 
-    public async Task ApplyMigrationsEmbedded(EmbeddedMigration migration) {
+    public async Task ApplyEmbeddedMigrations(EmbeddedMigration migration) {
         if (migration.EmbeddedTypeConfiguration == null) {
             Log(LogLevel.Warning, "EmbeddedTypeConfiguration is for migration {Migration} is null", migration.ID);
+
             return;
         }
 
@@ -135,6 +140,7 @@ public partial class DB {
 
         if (!typeConfig.FieldDefinitions.TryGetValue(migration.ParentTypeName, out var fieldDef)) {
             Log(LogLevel.Error, "Failed to migrate EmbeddedMigration for {ParentCollect}", migration.ParentTypeName);
+
             return;
         }
 
@@ -145,6 +151,7 @@ public partial class DB {
         while (await cursor.MoveNextAsync()) {
             foreach (var entity in cursor.Current) {
                 var updated = false;
+
                 foreach (var propertyName in fieldDef.PropertyNames) {
                     if (!entity.Contains(propertyName)) {
                         Log(
@@ -152,17 +159,20 @@ public partial class DB {
                             "Property {Property} is missing from Entity: {EntityId}",
                             propertyName,
                             entity["_id"]);
+
                         continue;
                     }
 
                     if (fieldDef.IsArray) {
                         var arr = entity.GetElement(propertyName).Value.AsBsonArray;
+
                         if (arr.Count == 0 || arr.Contains("_csharpnull")) {
                             Log(
                                 LogLevel.Warning,
                                 "Array {Array} is null or empty," +
                                 "No migrations applied",
                                 propertyName);
+
                             continue;
                         }
 
@@ -227,11 +237,14 @@ public partial class DB {
         typeConfig.DocumentVersion = migration.Version;
 
         fieldDef.UpdateAvailableProperties(typeConfig.TypeName);
+
         //await typeConfig.SaveAsync();
         await _defaultInstance.SaveAsync(typeConfig);
         migration.IsMigrated = true;
+
         //await migration.SaveAsync();
         await _defaultInstance.SaveAsync(migration);
+
         if (updates.Count != 0) {
             await collection.BulkWriteAsync(updates);
         }
@@ -295,7 +308,8 @@ public partial class DB {
                 foreach (var op in migration.DownOperations) {
                     if (op is AddFieldOperation addField) {
                         if (typeConfig.Fields.FirstOrDefault(e => e.FieldName == addField.Field.FieldName) != null) {
-                            Console.WriteLine($"Failed to undo migration {migration.ID}. Field {addField.Field.FieldName} already exists");
+                            Console.WriteLine(
+                                $"Failed to undo migration {migration.ID}. Field {addField.Field.FieldName} already exists");
 
                             continue;
                         }
@@ -350,9 +364,11 @@ public partial class DB {
 
         //Update documents,Update DocumentTypeConfiguration, Delete migration
         typeConfig.DocumentVersion = version;
+
         //await typeConfig.SaveAsync();
         await _defaultInstance.SaveAsync(typeConfig);
         await collection.BulkWriteAsync(updates);
+
         //await migration.DeleteAsync();
         await _defaultInstance.DeleteAsync(migration);
     }
@@ -360,6 +376,7 @@ public partial class DB {
     public async Task RevertEmbeddedMigration(EmbeddedMigration migration) {
         if (migration.EmbeddedTypeConfiguration == null) {
             Log(LogLevel.Warning, "EmbeddedTypeConfiguration is null for migration {Migration} is null", migration.ID);
+
             return;
         }
 
@@ -367,6 +384,7 @@ public partial class DB {
 
         if (!typeConfig.FieldDefinitions.TryGetValue(migration.ParentTypeName, out var fieldDef)) {
             Log(LogLevel.Error, "FieldDefinitions for ParentType {Parent} are missing", migration.ParentTypeName);
+
             return;
         }
 
@@ -400,6 +418,7 @@ public partial class DB {
                                 LogLevel.Information,
                                 "Array {Array} is null or empty, no migrations reverted",
                                 propertyName);
+
                             continue;
                         }
 
@@ -411,12 +430,14 @@ public partial class DB {
                         updated = true;
                     } else {
                         var doc = entity.GetElement(propertyName).Value.AsBsonDocument;
+
                         if (doc == null || doc.Contains("_csharpnull")) {
                             Log(
                                 LogLevel.Information,
                                 "Embedded object {Doc} is null or empty," +
                                 "No migrations reverted",
                                 propertyName);
+
                             continue;
                         }
 
@@ -470,6 +491,7 @@ public partial class DB {
 
         //await typeConfig.SaveAsync();
         await _defaultInstance.SaveAsync(typeConfig);
+
         if (updates.Any()) {
             await collection.BulkWriteAsync(updates);
         }
@@ -485,17 +507,20 @@ public partial class DB {
     internal async Task AddField(Field field, BsonDocument doc, BsonDocument entity) {
         switch (field) {
             case ObjectField oField: {
-                BsonDocument objDoc = !doc.Contains(oField.FieldName) ? new BsonDocument() : doc[oField.FieldName].AsBsonDocument;
+                BsonDocument objDoc = !doc.Contains(oField.FieldName) ? new() : doc[oField.FieldName].AsBsonDocument;
+
                 foreach (var f in oField.Fields) {
                     await AddField(f, objDoc, entity);
                 }
 
                 doc[oField.FieldName] = objDoc;
+
                 break;
             }
             case ValueField vField: {
                 if (vField is CalculatedField calcField) {
                     var expression = await ProcessCalculationField(calcField, doc, entity);
+
                     if (calcField.IsBooleanExpression) {
                         object result = ((bool)expression.Evaluate()) ? calcField.TrueValue : calcField.FalseValue;
                         doc[calcField.FieldName] = BsonValue.Create(result);
@@ -540,8 +565,8 @@ public partial class DB {
     }
 
     internal async Task<ExtendedExpression> ProcessCalculationField(CalculatedField cField,
-                                                                           BsonDocument doc,
-                                                                           BsonDocument entity) {
+                                                                    BsonDocument doc,
+                                                                    BsonDocument entity) {
         var expression = new ExtendedExpression(cField.Expression);
 
         foreach (var variable in cField.Variables) {
@@ -552,8 +577,14 @@ public partial class DB {
                     case EmbeddedPropertyVariable embeddedVar: {
                         var emDoc = entity[embeddedVar.Property].AsBsonDocument;
 
-                        for (int i = 0; i < embeddedVar.EmbeddedObjectProperties.Count; i++) {
-                            emDoc = emDoc[embeddedVar.EmbeddedObjectProperties[i]].AsBsonDocument;
+                        for (int i = 0; i < embeddedVar.EmbeddedObjectPropertyPath.Count; i++) {
+                            if (!emDoc.Contains(embeddedVar.EmbeddedObjectPropertyPath[i])) {
+                                Log(
+                                    LogLevel.Error,
+                                    $"Embedded property {embeddedVar.EmbeddedObjectPropertyPath[i]} not found" +
+                                    $"in {embeddedVar.Property}");
+                            }
+                            emDoc = emDoc[embeddedVar.EmbeddedObjectPropertyPath[i]].AsBsonDocument;
                         }
 
                         expression.Parameters[embeddedVar.VariableName] = embeddedVar.DataType switch {
@@ -561,10 +592,14 @@ public partial class DB {
                             DataType.STRING => emDoc[embeddedVar.EmbeddedProperty].AsString ?? "",
                             DataType.BOOLEAN => emDoc[embeddedVar.EmbeddedProperty].AsBoolean,
                             DataType.DATE => DateTime.Parse(emDoc[embeddedVar.EmbeddedProperty].AsString),
-                            DataType.LIST_NUMBER => emDoc[embeddedVar.EmbeddedProperty].AsBsonArray.Select(e => e.AsDouble),
-                            DataType.LIST_STRING => emDoc[embeddedVar.EmbeddedProperty].AsBsonArray.Select(e => e.AsString),
-                            DataType.LIST_BOOLEAN => emDoc[embeddedVar.EmbeddedProperty].AsBsonArray.Select(e => e.AsBoolean),
-                            DataType.LIST_DATE => emDoc[embeddedVar.EmbeddedProperty].AsBsonArray.Select(e => DateTime.Parse(e.AsString)),
+                            DataType.LIST_NUMBER => emDoc[embeddedVar.EmbeddedProperty].AsBsonArray
+                                .Select(e => e.AsDouble),
+                            DataType.LIST_STRING => emDoc[embeddedVar.EmbeddedProperty].AsBsonArray
+                                .Select(e => e.AsString),
+                            DataType.LIST_BOOLEAN => emDoc[embeddedVar.EmbeddedProperty].AsBsonArray
+                                .Select(e => e.AsBoolean),
+                            DataType.LIST_DATE => emDoc[embeddedVar.EmbeddedProperty].AsBsonArray
+                                .Select(e => DateTime.Parse(e.AsString)),
                             _ => emDoc[embeddedVar.EmbeddedProperty].AsDouble
                         };
 
@@ -573,21 +608,22 @@ public partial class DB {
                     case CollectionPropertyVariable cVar: {
                         if (entity.Contains(cVar.CollectionProperty)) {
                             IQueryable<BsonValue>? query;
-                            Console.WriteLine(cVar.Filter?.ToString() ?? "Empty Filter");
 
-                            if (cVar.Filter != null) {
-                                query = entity[cVar.CollectionProperty].AsBsonArray.AsQueryable()
-                                                                       .Where(cVar.Filter.ToString());
-                            } else {
-                                query = entity[cVar.CollectionProperty].AsBsonArray.AsQueryable();
-                            }
+                            //Console.WriteLine(cVar.Filter?.ToString() ?? "Empty Filter");
+
+                            query = cVar.Filter != null
+                                        ? entity[cVar.CollectionProperty].AsBsonArray.AsQueryable()
+                                                                         .Where(cVar.Filter.ToString())
+                                        : entity[cVar.CollectionProperty].AsBsonArray.AsQueryable();
 
                             if (query.Count() != 0) {
                                 expression.Parameters[cVar.VariableName] = cVar.DataType switch {
                                     DataType.NUMBER => query.Select($"e=>e.{cVar.Property}.AsDouble").FirstOrDefault(),
-                                    DataType.STRING => query.Select($"e=>e.{cVar.Property}.AsString").FirstOrDefault() ??
-                                                       "",
-                                    DataType.BOOLEAN => query.Select($"e=>e.{cVar.Property}.AsBoolean").FirstOrDefault(),
+                                    DataType.STRING =>
+                                        query.Select($"e=>e.{cVar.Property}.AsString").FirstOrDefault() ??
+                                        "",
+                                    DataType.BOOLEAN => query.Select($"e=>e.{cVar.Property}.AsBoolean")
+                                                             .FirstOrDefault(),
                                     DataType.DATE => query.Select(e => DateTime.Parse(e[cVar.Property].AsString))
                                                           .FirstOrDefault(),
                                     DataType.LIST_NUMBER => query.Select(e => e[cVar.Property].AsDouble),
@@ -615,23 +651,23 @@ public partial class DB {
                         break;
                     }
                     case RefPropertyVariable rVar: {
-                        var collection = Collection(rVar.DatabaseName, rVar.CollectionName).AsQueryable();
+                        var refQuery = Collection(rVar.DatabaseName, rVar.CollectionName).AsQueryable();
 
                         if (rVar.Filter != null) {
-                            collection.Where(rVar.Filter.ToString());
+                            refQuery = refQuery.Where(rVar.Filter.ToString());
                         }
 
-                        if (collection.Any()) {
+                        if (refQuery.Any()) {
                             expression.Parameters[rVar.VariableName] = rVar.DataType switch {
-                                DataType.NUMBER => collection.Select(e => e[rVar.Property].AsDouble).FirstOrDefault(),
-                                DataType.STRING => collection.Select(e => e[rVar.Property].AsString).FirstOrDefault(),
-                                DataType.BOOLEAN => collection.Select(e => e[rVar.Property].AsBoolean).FirstOrDefault(),
-                                DataType.DATE => collection.Select(e => DateTime.Parse(e[rVar.Property].AsString))
-                                                           .FirstOrDefault(),
-                                DataType.LIST_NUMBER => collection.Select(e => e[rVar.Property].AsDouble),
-                                DataType.LIST_STRING => collection.Select(e => e[rVar.Property].AsString),
-                                DataType.LIST_BOOLEAN => collection.Select(e => e[rVar.Property].AsBoolean),
-                                DataType.LIST_DATE => collection.Select(e => DateTime.Parse(e[rVar.Property].AsString)),
+                                DataType.NUMBER => refQuery.Select(e => e[rVar.Property].AsDouble).FirstOrDefault(),
+                                DataType.STRING => refQuery.Select(e => e[rVar.Property].AsString).FirstOrDefault(),
+                                DataType.BOOLEAN => refQuery.Select(e => e[rVar.Property].AsBoolean).FirstOrDefault(),
+                                DataType.DATE => refQuery.Select(e => DateTime.Parse(e[rVar.Property].AsString))
+                                                         .FirstOrDefault(),
+                                DataType.LIST_NUMBER => refQuery.Select(e => e[rVar.Property].AsDouble),
+                                DataType.LIST_STRING => refQuery.Select(e => e[rVar.Property].AsString),
+                                DataType.LIST_BOOLEAN => refQuery.Select(e => e[rVar.Property].AsBoolean),
+                                DataType.LIST_DATE => refQuery.Select(e => DateTime.Parse(e[rVar.Property].AsString)),
                                 _ => throw new ArgumentException("Empty Value type not supported")
                             };
                         } else {
@@ -651,13 +687,17 @@ public partial class DB {
                         break;
                     }
                     case RefCollectionPropertyVariable rcVar: {
-                        var collection = Collection(rcVar.DatabaseName, rcVar.CollectionName);
+                        var collection = Collection(rcVar.DatabaseName, rcVar.CollectionName).AsQueryable();
                         List<BsonDocument> list = [];
 
                         if (rcVar.Filter != null) {
-                            list = await collection.AsQueryable().Where(rcVar.Filter.ToString()).ToListAsync();
+                            if (rcVar.FilterOnEntityId) {
+                                collection = collection.Where(e
+                                    => e[rcVar.RefEntityIdProperty] == entity[rcVar.RefEntityIdProperty]);
+                            }
+                            list = await collection.Where(rcVar.Filter.ToString()).ToListAsync();
                         } else {
-                            list = await collection.Find(_ => true).ToListAsync();
+                            list = await collection.Where(_ => true).ToListAsync();
                         }
 
                         var query = list.SelectMany(e => e[rcVar.CollectionProperty].AsBsonArray).ToList();
@@ -666,7 +706,7 @@ public partial class DB {
                             query.AsQueryable().Where(rcVar.SubFilter.ToString());
                         }
 
-                        if (query.Count != 0) {
+                        if (query.Count() != 0) {
                             expression.Parameters[rcVar.VariableName] = rcVar.DataType switch {
                                 DataType.NUMBER => query.Select(e => e[rcVar.Property].AsDouble).FirstOrDefault(),
                                 DataType.STRING => query.Select(e => e[rcVar.Property].AsString).FirstOrDefault(),
@@ -705,7 +745,8 @@ public partial class DB {
                                 DataType.LIST_NUMBER => entity[pVar.Property].AsBsonArray.Select(e => e.AsDouble),
                                 DataType.LIST_STRING => entity[pVar.Property].AsBsonArray.Select(e => e.AsString),
                                 DataType.LIST_BOOLEAN => entity[pVar.Property].AsBsonArray.Select(e => e.AsBoolean),
-                                DataType.LIST_DATE => entity[pVar.Property].AsBsonArray.Select(e => DateTime.Parse(e.AsString)),
+                                DataType.LIST_DATE => entity[pVar.Property].AsBsonArray
+                                                                           .Select(e => DateTime.Parse(e.AsString)),
                                 _ => throw new ArgumentException("Empty Value type not supported")
                             };
                         } else {
@@ -718,9 +759,11 @@ public partial class DB {
                                 DataType.LIST_STRING => new List<string>(),
                                 DataType.LIST_BOOLEAN => new List<bool>(),
                                 DataType.LIST_DATE => new List<DateTime>(),
-                                _ => throw new ArgumentException($"Empty Value type not supported, Property: {pVar.Property} DataType: {pVar.DataType}")
+                                _ => throw new ArgumentException(
+                                         $"Empty Value type not supported, Property: {pVar.Property} DataType: {pVar.DataType}")
                             };
                         }
+
                         break;
                     }
                 }
@@ -731,8 +774,8 @@ public partial class DB {
     }
 
     internal async Task RevertOperations(BsonDocument embeddedEntity,
-                                                EmbeddedMigration migration,
-                                                EmbeddedFieldDefinitions fieldDef) {
+                                         EmbeddedMigration migration,
+                                         EmbeddedFieldDefinitions fieldDef) {
         var doc = embeddedEntity.GetElement("AdditionalData").Value.ToBsonDocument();
 
         if (doc.Contains("_csharpnull")) {
@@ -743,7 +786,8 @@ public partial class DB {
             switch (op) {
                 case AddFieldOperation addField: {
                     if (fieldDef.Fields.FirstOrDefault(e => e.FieldName == addField.Field.FieldName) != null) {
-                        Console.WriteLine($"Failed to undo migration {migration.ID}. Field {addField.Field.FieldName} already exists");
+                        Console.WriteLine(
+                            $"Failed to undo migration {migration.ID}. Field {addField.Field.FieldName} already exists");
 
                         continue;
                     }
@@ -781,8 +825,8 @@ public partial class DB {
     }
 
     internal async Task ApplyEmbeddedMigrationOperations(BsonDocument embeddedDoc,
-                                                                EmbeddedMigration migration,
-                                                                EmbeddedFieldDefinitions fieldDef) {
+                                                         EmbeddedMigration migration,
+                                                         EmbeddedFieldDefinitions fieldDef) {
         var addDataDoc = embeddedDoc.GetElement("AdditionalData").Value.ToBsonDocument();
 
         if (addDataDoc == null || addDataDoc.Contains("_csharpnull")) {
@@ -814,5 +858,4 @@ public partial class DB {
     }
 
 #endregion
-    
 }

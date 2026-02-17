@@ -24,13 +24,15 @@ public class PropertyVariable : Variable {
 }
 
 /// <summary>
-///
 /// Object.OwningProperty.Property
 /// </summary>
 
 public class EmbeddedPropertyVariable : PropertyVariable {
-    //public string OwningPropertyName { get; set; } = null!;
-    public IList<string> EmbeddedObjectProperties { get; set; } = null!;
+    /// <summary>
+    /// Path to the embedded object property
+    /// the last item in the list is the target object with the embedded property in it
+    /// </summary>
+    public IList<string> EmbeddedObjectPropertyPath { get; set; } = [];
     public string EmbeddedProperty { get; set; } = null!;
     
 }
@@ -54,6 +56,9 @@ public class RefPropertyVariable:PropertyVariable {
 public class RefCollectionPropertyVariable:PropertyVariable{
     public string DatabaseName { get; set; } = null!;
     public string CollectionName { get; set; } = null!;
+    public bool FilterOnEntityId { get; set; } = false;
+    public string EntityIdProperty { get; set; } = string.Empty;
+    public string RefEntityIdProperty { get; set; } = string.Empty;
     public Filter? Filter { get; set; }
     public string CollectionProperty { get; set; } = null!;
     public Filter? SubFilter { get; set; }

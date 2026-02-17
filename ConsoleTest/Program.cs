@@ -1,7 +1,9 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
-using System.Collections;
+using System.Linq.Dynamic.Core;
 using System.Linq.Expressions;
+using System.Text.Json;
+using MongoDB.Driver.Linq.Linq3Implementation;
 using ConsoleTesting;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -10,9 +12,65 @@ using NCalcExtensions;
 
 //Console.WriteLine("Hello, World!");
 //RegisterEmbedded<Data>(e => e.EmbeddedList);
-await TestDatabaseMigrations();
+//await TestDatabaseMigrations();
 
+var db = await DB.InitAsync(
+             "mongo-dev-test",
+             new MongoClientSettings() {
+                 Server = new("172.20.3.41", 27017),
+             });
+/*await BuildMigrationRefCollectionProp();
+await db.ApplyMigrations();*/
+/*await GenerateEpiData();
+await DynamicQueryTesting();*/
 
+ValueFieldBuilder builder = new ValueFieldBuilder();
+builder.WithDataType(DataType.NUMBER)
+       .WithValueInfo(0.00)
+       .WithFieldName("Test");
+
+ObjectFieldBuilder objBuilder = new ObjectFieldBuilder();
+var field = builder.Build();
+objBuilder.WithFieldName("Test")
+          .WithTypes(BsonType.Double, TypeCode.Double)
+          .WithField(ft => ft.WithFieldName(""));
+          /*.AddField<ValueField>(field).AddField(
+              new CalculatedFieldBuilder()
+                  .SetFieldName("Test2")
+                  .SetDataType(DataType.NUMBER)
+                  .SetExpression("[power]/([voltage]*[current])]")
+                  .AddVariable(new ValueVariableBuilder())
+                  .Build());*/
+
+async Task DynamicQueryTesting() {
+    /*var db = await DB.InitAsync(
+                 "mongo-dev-test",
+                 new MongoClientSettings() {
+                     Server = new("172.20.3.41", 27017),
+                 });*/
+    var collection = DB.Default.Collection("mongo-dev-test", "quick_tests").AsQueryable();
+    collection = collection.Where(e => e["WaferId"].AsString == "B01-0001-02");
+
+    var query = collection.Select(e => e["InitialMeasurements"]["Power"]);
+    var list = query.ToList();
+    var output = list.SelectMany(e => e.AsBsonArray).ToList();
+
+    output.ForEach(e => Console.WriteLine(e));
+    /*list.ForEach(e=>Console.WriteLine(e));
+    var output=list.Select(e=>e.AsBsonArray).ToList();
+    output.ForEach(e=>Console.WriteLine(e));*/
+    //Console.WriteLine(query.Select(e=>e.ToBsonDocument()).ToString());
+
+    /*var qtCollection=DB.Default.Collection<QuickTest>();
+    var result=qtCollection.AsQueryable().SelectMany(e => e.InitialMeasurements.Select(m=>m.Power));*/
+    //Console.WriteLine(query.Count());
+
+    /*var collection=DB.Default.Collection("mongo-dev-test","quick_tests").AsQueryable();
+    Prop
+    var count= collection.Where("e => e.InitialMeasurements.AsBsonArray.Average(m=>m.Power) >= 900").Count();
+    Console.WriteLine(count);*/
+    //DB.Default.Find<QuickTest>().Match(e => e.InitialMeasurements.Average(e=>e.Power) >= 900);
+}
 
 async Task TestDatabaseMigrations() {
     var db = await DB.InitAsync(
@@ -49,22 +107,13 @@ async Task BuildEmbeddedMigration() {
     Console.WriteLine("Migration Number: " + migrationNumber);
 
     MigrationBuilder builder = new MigrationBuilder();
-    /*ValueField valueField = new ValueField() {
-        FieldName = "WPE",
-        TypeCode = TypeCode.Double,
-        BsonType = BsonType.Double,
-        DataType = DataType.NUMBER,
-        DefaultValue = 0.00
-    };*/
-    
-    //"([power]/([volts]*[current]))*100"
     var calcField = new CalculatedField() {
         FieldName = "WPE",
         BsonType = BsonType.Double,
         TypeCode = TypeCode.Double,
         DataType = DataType.NUMBER,
         DefaultValue = 0.00,
-        Expression = "[power]*[voltage]*[current]",
+        Expression = "([power]/([volts]*[current]))*100",
         Variables = [
             new PropertyVariable() {
                 Property = nameof(QtMeasurement.Power),
@@ -107,11 +156,13 @@ async Task BuildEmbeddedMigration() {
     //await typeConfig.SaveAsync();
     await DB.Default.SaveAsync(typeConfig);
     var migration = builder.Build(typeConfig, migrationNumber, nameof(QuickTest) ?? string.Empty);
+
     //await migration.SaveAsync();
     await DB.Default.SaveAsync(migration);
 
     //migration.DocumentTypeConfiguration = documentTypeConfig.ToReference();
     await typeConfig.EmbeddedMigrations.AddAsync(migration);
+
     //await migration.SaveAsync();
     await DB.Default.SaveAsync(migration);
     Console.WriteLine("Migration Created");
@@ -277,6 +328,236 @@ async Task BuildMigration() {
     //await migration.SaveAsync();
     await DB.Default.SaveAsync(migration);
     Console.WriteLine("Migration Created");
+}
+
+async Task BuildMigrationRefCollectionProp() {
+    var migrationNumber = await DB.Default.Collection<DocumentMigration>()
+                                  .Find(_ => true)
+                                  .SortByDescending(e => e.MigrationNumber)
+                                  .Project(e => e.MigrationNumber)
+                                  .FirstOrDefaultAsync();
+    Console.WriteLine("Migration Number: " + migrationNumber);
+
+    MigrationBuilder builder = new MigrationBuilder();
+    ObjectField objField = new ObjectField {
+        FieldName = "QT Summary",
+        BsonType = BsonType.Document,
+        TypeCode = TypeCode.Object,
+        Fields = [
+            new CalculatedField {
+                FieldName = "InitialAvgPower",
+                BsonType = BsonType.Double,
+                TypeCode = TypeCode.Double,
+                DataType = DataType.NUMBER,
+                DefaultValue = 0.00,
+                Expression = "avg([powerArr])",
+                Variables = [
+                    new RefCollectionPropertyVariable() {
+                        Property = nameof(QtMeasurement.Power),
+                        VariableName = "powerArr",
+                        CollectionProperty = nameof(QuickTest.InitialMeasurements),
+                        CollectionName = "quick_tests",
+                        DatabaseName = "mongo-dev-test",
+                        DataType = DataType.LIST_NUMBER,
+                        FilterOnEntityId = true,
+                        RefEntityIdProperty = nameof(QuickTest.WaferId),
+                        EntityIdProperty = nameof(EpiRun.WaferId)
+                    }
+                ]
+            },
+            new CalculatedField {
+                FieldName = "InitialAvgWl",
+                BsonType = BsonType.Double,
+                TypeCode = TypeCode.Double,
+                DataType = DataType.NUMBER,
+                DefaultValue = 0.00,
+                Expression = "avg([wlArr])",
+                Variables = [
+                    new RefCollectionPropertyVariable {
+                        Property = nameof(QtMeasurement.Wavelength),
+                        VariableName = "wlArr",
+                        CollectionProperty = nameof(QuickTest.InitialMeasurements),
+                        CollectionName = "quick_tests",
+                        DatabaseName = "mongo-dev-test",
+                        DataType = DataType.LIST_NUMBER,
+                        FilterOnEntityId = true,
+                        RefEntityIdProperty = nameof(QuickTest.WaferId),
+                        EntityIdProperty = nameof(EpiRun.WaferId)
+                    },
+                ]
+            },
+            new CalculatedField {
+                FieldName = "FinalMedianPower",
+                BsonType = BsonType.Double,
+                TypeCode = TypeCode.Double,
+                DataType = DataType.NUMBER,
+                DefaultValue = 0.00,
+                Expression = "median([powerArr])",
+                Variables = [
+                    new RefCollectionPropertyVariable() {
+                        Property = nameof(QtMeasurement.Power),
+                        VariableName = "powerArr",
+                        CollectionProperty = nameof(QuickTest.FinalMeasurements),
+                        CollectionName = "quick_tests",
+                        DatabaseName = "mongo-dev-test",
+                        DataType = DataType.LIST_NUMBER,
+                        FilterOnEntityId = true,
+                        RefEntityIdProperty = nameof(QuickTest.WaferId),
+                        EntityIdProperty = nameof(EpiRun.WaferId)
+                    }
+                ]
+            },
+            new CalculatedField {
+                FieldName = "FinalMedianWl",
+                BsonType = BsonType.Double,
+                TypeCode = TypeCode.Double,
+                DataType = DataType.NUMBER,
+                DefaultValue = 0.00,
+                Expression = "median([wlArr])",
+                Variables = [
+                    new RefCollectionPropertyVariable {
+                        Property = nameof(QtMeasurement.Wavelength),
+                        VariableName = "wlArr",
+                        CollectionProperty = nameof(QuickTest.FinalMeasurements),
+                        CollectionName = "quick_tests",
+                        DatabaseName = "mongo-dev-test",
+                        DataType = DataType.LIST_NUMBER,
+                        FilterOnEntityId = true,
+                        RefEntityIdProperty = nameof(QuickTest.WaferId),
+                        EntityIdProperty = nameof(EpiRun.WaferId)
+                    },
+                ]
+            }
+        ]
+    };
+    builder.AddField(objField);
+
+    //DocumentTypeConfiguration? typeConfig = DocumentTypeConfiguration.CreateOnline<QuickTest>();
+    var typeConfig = await DB.Default.CreateDocumentConfigOnline<EpiRun>();
+
+    if (typeConfig == null) {
+        Console.WriteLine("DocumentTypeConfiguration.CreateOnly failed!");
+
+        return;
+    }
+
+    //await typeConfig.SaveAsync();
+    await DB.Default.SaveAsync(typeConfig);
+    var migration = builder.Build(typeConfig, migrationNumber);
+
+    //await migration.SaveAsync();
+    await DB.Default.SaveAsync(migration);
+
+    //migration.DocumentTypeConfiguration = documentTypeConfig.ToReference();
+    await typeConfig.Migrations.AddAsync(migration);
+
+    //await migration.SaveAsync();
+    //await migration.SaveAsync();
+    await DB.Default.SaveAsync(migration);
+    Console.WriteLine("Migration Created");
+}
+
+async Task BuilderMigration3() {
+    var migrationNumber = await DB.Default.Collection<DocumentMigration>()
+                                  .Find(_ => true)
+                                  .SortByDescending(e => e.MigrationNumber)
+                                  .Project(e => e.MigrationNumber)
+                                  .FirstOrDefaultAsync();
+    var collectionName = DB.Default.CollectionName<QuickTest>();
+    var typeConfig = await DB.Default.Collection<DocumentTypeConfiguration>()
+                             .Find(e => e.CollectionName == collectionName)
+                             .FirstOrDefaultAsync();
+
+    if (typeConfig == null) {
+        Console.WriteLine("DocumentTypeConfiguration not found");
+
+        return;
+    }
+
+    var objField = new ObjectField {
+        FieldName = "Qt Pass/Fail",
+        BsonType = BsonType.Document,
+        TypeCode = TypeCode.Object,
+        Fields = [
+            new CalculatedField {
+                FieldName = "Power Pass/Fail",
+                BsonType = BsonType.String,
+                IsBooleanExpression = true,
+                DefaultValue = "Fail",
+                TrueValue = "Pass",
+                FalseValue = "Fail",
+                Expression = "[pAvg]>[pCriteria]",
+                QuantityName = "",
+                TypeCode = TypeCode.String,
+                Variables = [
+                    new ValueVariable {
+                        VariableName = "pCriteria",
+                        TypeCode = TypeCode.Double,
+                        DataType = DataType.NUMBER,
+                        Value = 950
+                    },
+                    new EmbeddedPropertyVariable {
+                        VariableName = "pAvg",
+                        EmbeddedProperty = "Avg. Initial Power",
+                        EmbeddedObjectPropertyPath = ["Qt Summary"],
+                        Property = "AdditionalData",
+                        DataType = DataType.NUMBER,
+                    }
+                ]
+            },
+            new CalculatedField {
+                FieldName = "Pass Fail",
+                BsonType = BsonType.String,
+                IsBooleanExpression = true,
+                DefaultValue = "Fail",
+                TrueValue = "Pass",
+                FalseValue = "Fail",
+                Expression = "([pAvg]>[pCriteria]) && ([wlAvg]>=[wlMin] && [wlAvg] <= [wlMax])",
+                QuantityName = "",
+                TypeCode = TypeCode.String,
+                Variables = [
+                    new ValueVariable {
+                        VariableName = "wlMax",
+                        TypeCode = TypeCode.Double,
+                        DataType = DataType.NUMBER,
+                        Value = 279.5,
+                    },
+                    new ValueVariable {
+                        VariableName = "wlMin",
+                        TypeCode = TypeCode.Double,
+                        DataType = DataType.NUMBER,
+                        Value = 270.5,
+                    },
+                    new ValueVariable {
+                        VariableName = "pCriteria",
+                        TypeCode = TypeCode.Double,
+                        DataType = DataType.NUMBER,
+                        Value = 950
+                    },
+                    new EmbeddedPropertyVariable {
+                        VariableName = "pAvg",
+                        EmbeddedProperty = "Avg. Initial Power",
+                        EmbeddedObjectPropertyPath = ["Qt Summary"],
+                        Property = "AdditionalData",
+                        DataType = DataType.NUMBER,
+                    },
+                    new EmbeddedPropertyVariable {
+                        VariableName = "wlAvg",
+                        EmbeddedProperty = "Avg. Wl",
+                        EmbeddedObjectPropertyPath = ["Qt Summary"],
+                        Property = "AdditionalData",
+                        DataType = DataType.NUMBER,
+                    },
+                ]
+            }
+        ]
+    };
+    MigrationBuilder builder = new MigrationBuilder();
+    builder.AddField(objField);
+    var migration = builder.Build(typeConfig, migrationNumber);
+
+    //await migration.SaveAsync();
+    Console.WriteLine("Migration saved");
 }
 
 async Task GenerateEpiData() {

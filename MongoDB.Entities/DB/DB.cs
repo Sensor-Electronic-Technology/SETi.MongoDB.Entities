@@ -84,6 +84,7 @@ public partial class DB
     /// <param name="clientSettings">A MongoClientSettings object</param>
     /// <param name="databaseSettings">The database settings to create the database with</param>
     /// <param name="skipNetworkPing">Should we ping the database</param>
+    /// <param name="enableLogging">Enable internal database logging</param>
     /// <returns>DB instance</returns>
     public static async Task<DB> InitAsync(string dbName,
                                            MongoClientSettings? clientSettings = null,
@@ -167,6 +168,14 @@ public partial class DB
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when no databases have been initialized.</exception>
     public static DB Default => Instance();
+
+    public static DocumentTypeConfiguration? TypeConfiguration<TEntity>() where TEntity : IDocumentEntity {
+        return Cache<TEntity>.TypeConfiguration;
+    }
+    
+    /*public static DocumentTypeConfiguration? TypeConfiguration<TEntity>() where TEntity : IEmbeddedEntity {
+        return Cache<TEntity>.TypeConfiguration;
+    }*/
 
     /// <summary>
     /// Gets the DB instance for a given database name if it has been previously initialized.
