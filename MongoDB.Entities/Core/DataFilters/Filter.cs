@@ -7,13 +7,13 @@ public class Filter {
     public string CompareOperator { get; set; } = ComparisonOperator.Equal.Value;
     public string FilterLogicalOperator { get; set; } = LogicalOperator.And.Value;
     public object Value { get; set; } = null!;
-    public ICollection<Filter>? Filters { get; set; } = [];
+    public ICollection<Filter> Filters { get; set; } = [];
 
     public override string ToString() {
         return "e=>"+BuildFilterString(this);
     }
     internal static string BuildFilterString(Filter filter) {
-        if (filter.Filters==null || filter.Filters.Count == 0) {
+        if (filter.Filters.Count == 0) {
             return $"e.{filter.FieldName} {filter.CompareOperator} {filter.Value})";
         }
         List<string> whereClauses = [

@@ -1,19 +1,22 @@
 ﻿using System;
 using System.Collections.Generic;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
 namespace MongoDB.Entities;
 
 [BsonDiscriminator(RootClass = true), 
  BsonKnownTypes(typeof(ValueVariable), 
-     typeof(CollectionPropertyVariable), 
+     typeof(OwnedCollectionPropertyVariable), 
      typeof(PropertyVariable),
-     typeof(RefPropertyVariable),
-     typeof(RefCollectionPropertyVariable),
-     typeof(EmbeddedPropertyVariable))]
+     typeof(ExternalPropertyVariable),
+     typeof(ExternalCollectionPropertyVariable),
+     typeof(OwnedEmbeddedPropertyVariable))]
 public class Variable {
     public string VariableName { get; set; } = null!;
     public DataType DataType { get; set; }
+    public TypeCode TypeCode { get; set; }
+    public BsonType BsonType { get; set; }
 }
 /// <summary>
 /// Property from the owning entity
@@ -24,27 +27,46 @@ public class PropertyVariable : Variable {
 }
 
 /// <summary>
+/// Static value
+/// Could be false, pass, 1, 2.5, etc
+/// </summary>
+public class ValueVariable : Variable {
+    public object Value { get; set; } = null!;
+}
+
+/// <summary>
 /// Object.OwningProperty.Property
 /// </summary>
-
-public class EmbeddedPropertyVariable : PropertyVariable {
+public class OwnedEmbeddedPropertyVariable : PropertyVariable {
     /// <summary>
     /// Path to the embedded object property
     /// the last item in the list is the target object with the embedded property in it
     /// </summary>
     public IList<string> EmbeddedObjectPropertyPath { get; set; } = [];
     public string EmbeddedProperty { get; set; } = null!;
-    
 }
 
 /// <summary>
 /// Property from a reference collection
-/// Database.Collection.Where(Filter).Property
+/// Database.Collection.Collection.Where(Filter).Select(Property)
+/// If(FilterOnEntityId) Database.Collection.Where(EntityIdFilter && Filter).Select(Property)
 /// </summary>
-
-public class RefPropertyVariable:PropertyVariable {
+public class ExternalPropertyVariable:PropertyVariable {
     public string DatabaseName { get; set; } = null!;
     public string CollectionName { get; set; } = null!;
+    public bool FilterOnEntityId { get; set; } = false;
+    public string EntityIdProperty { get; set; } = string.Empty;
+    public string RefEntityIdProperty { get; set; } = string.Empty;
+    public Filter? Filter { get; set; }
+    
+}
+
+/// <summary>
+/// Collection in the owning entity
+/// Object.Collection.Where(Filter).Property
+/// </summary>
+public class OwnedCollectionPropertyVariable:PropertyVariable {
+    public string CollectionProperty { get; set; } = null!;
     public Filter? Filter { get; set; }
 }
 
@@ -53,7 +75,7 @@ public class RefPropertyVariable:PropertyVariable {
 /// Database.Collection.Where(Filter).Collection(Filter).Property
 /// </summary>
 /// 
-public class RefCollectionPropertyVariable:PropertyVariable{
+public class ExternalCollectionPropertyVariable:PropertyVariable{
     public string DatabaseName { get; set; } = null!;
     public string CollectionName { get; set; } = null!;
     public bool FilterOnEntityId { get; set; } = false;
@@ -64,22 +86,8 @@ public class RefCollectionPropertyVariable:PropertyVariable{
     public Filter? SubFilter { get; set; }
 }
 
-/// <summary>
-/// Collection in the owning entity
-/// Object.Collection.Where(Filter).Property
-/// </summary>
-public class CollectionPropertyVariable:PropertyVariable {
-    public string CollectionProperty { get; set; } = null!;
-    public Filter? Filter { get; set; }
-}
 
-/// <summary>
-/// Static value
-/// Could be false, pass, 1, 2.5, etc
-/// </summary>
-public class ValueVariable : Variable {
-    public object Value { get; set; } = null!;
-    public TypeCode TypeCode { get; set; }
-}
+
+
 
 

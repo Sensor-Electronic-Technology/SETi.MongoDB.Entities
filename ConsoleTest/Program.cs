@@ -14,33 +14,66 @@ using NCalcExtensions;
 //RegisterEmbedded<Data>(e => e.EmbeddedList);
 //await TestDatabaseMigrations();
 
-var db = await DB.InitAsync(
+/*var db = await DB.InitAsync(
              "mongo-dev-test",
              new MongoClientSettings() {
                  Server = new("172.20.3.41", 27017),
-             });
+             });*/
 /*await BuildMigrationRefCollectionProp();
 await db.ApplyMigrations();*/
 /*await GenerateEpiData();
 await DynamicQueryTesting();*/
 
-ValueFieldBuilder builder = new ValueFieldBuilder();
-builder.WithDataType(DataType.NUMBER)
-       .WithValueInfo(0.00)
-       .WithFieldName("Test");
 
-ObjectFieldBuilder objBuilder = new ObjectFieldBuilder();
-var field = builder.Build();
-objBuilder.WithFieldName("Test")
-          .WithTypes(BsonType.Double, TypeCode.Double)
-          .WithField(ft => ft.WithFieldName(""));
-          /*.AddField<ValueField>(field).AddField(
-              new CalculatedFieldBuilder()
-                  .SetFieldName("Test2")
-                  .SetDataType(DataType.NUMBER)
-                  .SetExpression("[power]/([voltage]*[current])]")
-                  .AddVariable(new ValueVariableBuilder())
-                  .Build());*/
+string TestSelector<TEntity>(Expression<Func<TEntity, object?>> selector) {
+    return Prop.Path(selector);
+}
+
+void TestingBuilders() {
+    var filter = FilterBuilder.CreateBuilder()
+                          .FieldName(nameof(QtMeasurement.Power))
+                          .Value(1100)
+                          .ComparisonOperator(ComparisonOperator.LessThanOrEqual)
+                          .LogicalOperator(LogicalOperator.And)
+                          .HasFilter(f => f.FieldName(nameof(QtMeasurement.Power))
+                                           .Value(500)
+                                           .ComparisonOperator(ComparisonOperator.GreaterThan)
+                                           .LogicalOperator(LogicalOperator.And)
+                                           .Build())
+                          .HasFilter(f => f.FieldName(nameof(QtMeasurement.Wavelength))
+                                           .Value(270)
+                                           .ComparisonOperator(ComparisonOperator.GreaterThanOrEqual)
+                                           .LogicalOperator(LogicalOperator.And)
+                                           .HasFilter(fs=>fs.FieldName(nameof(QtMeasurement.Wavelength))
+                                                            .Value(279)
+                                                            .ComparisonOperator(ComparisonOperator.LessThanOrEqual)
+                                                            .LogicalOperator(LogicalOperator.Or)
+                                                            .Build())
+                                           .Build())
+                          .Build();
+
+var field = ObjectFieldBuilder.Create()
+                              .FieldName("Qt Summary")
+                              .Types(BsonType.Document, TypeCode.Object)
+                              .HasField<ObjectField,ObjectFieldBuilder>(builder=>builder
+                                  .FieldName(nameof(QtMeasurement.Power))
+                                  .Types(BsonType.Double,TypeCode.Double)
+                                  .HasField<CalculatedField,CalculatedFieldBuilder>(builder=>builder
+                                      .FieldName("Avg. Initial Power")
+                                      .Types(BsonType.Double,TypeCode.Double)
+                                      .ValueInfo(0.00)
+                                      .WithExpression("avg([powers])")
+                                      .HasVariable<OwnedCollectionPropertyVariable,CollectionPropertyVarBuilder>(
+                                          vb=>vb.Property<QtMeasurement>(e=>e.Power)
+                                                .DataType(DataType.LIST_NUMBER)
+                                                .VariableName("powers")
+                                                .CollectionProperty<QuickTest>(p=>p.InitialMeasurements).Build()))
+                                  .Build());
+
+
+
+Console.WriteLine(filter.ToString());
+}
 
 async Task DynamicQueryTesting() {
     /*var db = await DB.InitAsync(
@@ -223,10 +256,11 @@ async Task BuildMigration() {
                 DefaultValue = 0.00,
                 Expression = "avg([powers])",
                 Variables = [
-                    new CollectionPropertyVariable {
+                    new OwnedCollectionPropertyVariable {
                         Property = "Power",
                         VariableName = "powers",
                         CollectionProperty = "InitialMeasurements",
+                        DataType = DataType.LIST_NUMBER,
                         Filter = new() {
                             FieldName = nameof(QtMeasurement.Power),
                             CompareOperator = ComparisonOperator.LessThanOrEqual,
@@ -255,7 +289,7 @@ async Task BuildMigration() {
                                 }
                             }
                         },
-                        DataType = DataType.LIST_NUMBER
+                        
                     }
                 ]
             },
@@ -265,7 +299,7 @@ async Task BuildMigration() {
                 DefaultValue = 0.00,
                 Expression = "avg([wavelengths])",
                 Variables = [
-                    new CollectionPropertyVariable {
+                    new OwnedCollectionPropertyVariable {
                         Property = nameof(QtMeasurement.Wavelength),
                         VariableName = "wavelengths",
                         CollectionProperty = nameof(QuickTest.InitialMeasurements),
@@ -352,7 +386,7 @@ async Task BuildMigrationRefCollectionProp() {
                 DefaultValue = 0.00,
                 Expression = "avg([powerArr])",
                 Variables = [
-                    new RefCollectionPropertyVariable() {
+                    new ExternalCollectionPropertyVariable() {
                         Property = nameof(QtMeasurement.Power),
                         VariableName = "powerArr",
                         CollectionProperty = nameof(QuickTest.InitialMeasurements),
@@ -373,7 +407,7 @@ async Task BuildMigrationRefCollectionProp() {
                 DefaultValue = 0.00,
                 Expression = "avg([wlArr])",
                 Variables = [
-                    new RefCollectionPropertyVariable {
+                    new ExternalCollectionPropertyVariable {
                         Property = nameof(QtMeasurement.Wavelength),
                         VariableName = "wlArr",
                         CollectionProperty = nameof(QuickTest.InitialMeasurements),
@@ -394,7 +428,7 @@ async Task BuildMigrationRefCollectionProp() {
                 DefaultValue = 0.00,
                 Expression = "median([powerArr])",
                 Variables = [
-                    new RefCollectionPropertyVariable() {
+                    new ExternalCollectionPropertyVariable() {
                         Property = nameof(QtMeasurement.Power),
                         VariableName = "powerArr",
                         CollectionProperty = nameof(QuickTest.FinalMeasurements),
@@ -415,7 +449,7 @@ async Task BuildMigrationRefCollectionProp() {
                 DefaultValue = 0.00,
                 Expression = "median([wlArr])",
                 Variables = [
-                    new RefCollectionPropertyVariable {
+                    new ExternalCollectionPropertyVariable {
                         Property = nameof(QtMeasurement.Wavelength),
                         VariableName = "wlArr",
                         CollectionProperty = nameof(QuickTest.FinalMeasurements),
@@ -496,7 +530,7 @@ async Task BuilderMigration3() {
                         DataType = DataType.NUMBER,
                         Value = 950
                     },
-                    new EmbeddedPropertyVariable {
+                    new OwnedEmbeddedPropertyVariable {
                         VariableName = "pAvg",
                         EmbeddedProperty = "Avg. Initial Power",
                         EmbeddedObjectPropertyPath = ["Qt Summary"],
@@ -534,14 +568,14 @@ async Task BuilderMigration3() {
                         DataType = DataType.NUMBER,
                         Value = 950
                     },
-                    new EmbeddedPropertyVariable {
+                    new OwnedEmbeddedPropertyVariable {
                         VariableName = "pAvg",
                         EmbeddedProperty = "Avg. Initial Power",
                         EmbeddedObjectPropertyPath = ["Qt Summary"],
                         Property = "AdditionalData",
                         DataType = DataType.NUMBER,
                     },
-                    new EmbeddedPropertyVariable {
+                    new OwnedEmbeddedPropertyVariable {
                         VariableName = "wlAvg",
                         EmbeddedProperty = "Avg. Wl",
                         EmbeddedObjectPropertyPath = ["Qt Summary"],

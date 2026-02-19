@@ -32,11 +32,3 @@ public class LogicalOperator : SmartEnum<LogicalOperator, string> {
         ODataOperator=oDataOp;
     }
 }
-
-public class CollectionOperations : SmartEnum<CollectionOperations, string> {
-    public static readonly CollectionOperations Avg=new("Avg","Avg");
-    public static readonly CollectionOperations Median=new("Median","Median");
-    public static readonly CollectionOperations Min=new("Min","Min");
-    public static readonly CollectionOperations Max=new("Max","Max");
-    public CollectionOperations(string name, string value) : base(name, value) { }
-}

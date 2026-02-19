@@ -561,6 +561,9 @@ public partial class DB {
         } else if (field is CalculatedField cField) {
             var expression = await ProcessCalculationField(cField, doc, entity);
             doc.Add(cField.FieldName, BsonValue.Create(expression.Evaluate()));
+        } else if (field is ReferenceField rField) {
+            /*var value = await this.ProcessReferenceField(rField, doc, entity);
+            doc.Add(rField.FieldName, BsonValue.Create(value));*/
         }
     }
 
@@ -574,7 +577,7 @@ public partial class DB {
                 expression.Parameters[vVar.VariableName] = vVar.Value;
             } else if (variable is PropertyVariable pVar) {
                 switch (pVar) {
-                    case EmbeddedPropertyVariable embeddedVar: {
+                    case OwnedEmbeddedPropertyVariable embeddedVar: {
                         var emDoc = entity[embeddedVar.Property].AsBsonDocument;
 
                         for (int i = 0; i < embeddedVar.EmbeddedObjectPropertyPath.Count; i++) {
@@ -605,12 +608,9 @@ public partial class DB {
 
                         break;
                     }
-                    case CollectionPropertyVariable cVar: {
+                    case OwnedCollectionPropertyVariable cVar: {
                         if (entity.Contains(cVar.CollectionProperty)) {
                             IQueryable<BsonValue>? query;
-
-                            //Console.WriteLine(cVar.Filter?.ToString() ?? "Empty Filter");
-
                             query = cVar.Filter != null
                                         ? entity[cVar.CollectionProperty].AsBsonArray.AsQueryable()
                                                                          .Where(cVar.Filter.ToString())
@@ -620,12 +620,9 @@ public partial class DB {
                                 expression.Parameters[cVar.VariableName] = cVar.DataType switch {
                                     DataType.NUMBER => query.Select($"e=>e.{cVar.Property}.AsDouble").FirstOrDefault(),
                                     DataType.STRING =>
-                                        query.Select($"e=>e.{cVar.Property}.AsString").FirstOrDefault() ??
-                                        "",
-                                    DataType.BOOLEAN => query.Select($"e=>e.{cVar.Property}.AsBoolean")
-                                                             .FirstOrDefault(),
-                                    DataType.DATE => query.Select(e => DateTime.Parse(e[cVar.Property].AsString))
-                                                          .FirstOrDefault(),
+                                        query.Select($"e=>e.{cVar.Property}.AsString").FirstOrDefault() ?? "",
+                                    DataType.BOOLEAN => query.Select($"e=>e.{cVar.Property}.AsBoolean").FirstOrDefault(),
+                                    DataType.DATE => query.Select(e => DateTime.Parse(e[cVar.Property].AsString)).FirstOrDefault(),
                                     DataType.LIST_NUMBER => query.Select(e => e[cVar.Property].AsDouble),
                                     DataType.LIST_STRING => query.Select(e => e[cVar.Property].AsString),
                                     DataType.LIST_BOOLEAN => query.Select(e => e[cVar.Property].AsBoolean),
@@ -650,8 +647,12 @@ public partial class DB {
 
                         break;
                     }
-                    case RefPropertyVariable rVar: {
+                    case ExternalPropertyVariable rVar: {
                         var refQuery = Collection(rVar.DatabaseName, rVar.CollectionName).AsQueryable();
+
+                        if (rVar.FilterOnEntityId) {
+                            refQuery = refQuery.Where(e => e[rVar.RefEntityIdProperty] == entity[rVar.RefEntityIdProperty]);
+                        }
 
                         if (rVar.Filter != null) {
                             refQuery = refQuery.Where(rVar.Filter.ToString());
@@ -659,11 +660,10 @@ public partial class DB {
 
                         if (refQuery.Any()) {
                             expression.Parameters[rVar.VariableName] = rVar.DataType switch {
-                                DataType.NUMBER => refQuery.Select(e => e[rVar.Property].AsDouble).FirstOrDefault(),
-                                DataType.STRING => refQuery.Select(e => e[rVar.Property].AsString).FirstOrDefault(),
-                                DataType.BOOLEAN => refQuery.Select(e => e[rVar.Property].AsBoolean).FirstOrDefault(),
-                                DataType.DATE => refQuery.Select(e => DateTime.Parse(e[rVar.Property].AsString))
-                                                         .FirstOrDefault(),
+                                DataType.NUMBER => refQuery.Select(e => e[rVar.Property].As(DataTypeMap.BsonTypeLookup[rVar.DataType])).FirstOrDefault(),
+                                DataType.STRING => refQuery.Select(e => e[rVar.Property].As(DataTypeMap.BsonTypeLookup[rVar.DataType])).FirstOrDefault(),
+                                DataType.BOOLEAN => refQuery.Select(e => e[rVar.Property].As(DataTypeMap.BsonTypeLookup[rVar.DataType])).FirstOrDefault(),
+                                DataType.DATE => refQuery.Select(e =>e[rVar.Property].As(DataTypeMap.BsonTypeLookup[rVar.DataType])).FirstOrDefault(),
                                 DataType.LIST_NUMBER => refQuery.Select(e => e[rVar.Property].AsDouble),
                                 DataType.LIST_STRING => refQuery.Select(e => e[rVar.Property].AsString),
                                 DataType.LIST_BOOLEAN => refQuery.Select(e => e[rVar.Property].AsBoolean),
@@ -686,7 +686,7 @@ public partial class DB {
 
                         break;
                     }
-                    case RefCollectionPropertyVariable rcVar: {
+                    case ExternalCollectionPropertyVariable rcVar: {
                         var collection = Collection(rcVar.DatabaseName, rcVar.CollectionName).AsQueryable();
                         List<BsonDocument> list = [];
 
@@ -772,7 +772,7 @@ public partial class DB {
 
         return expression;
     }
-
+    
     internal async Task RevertOperations(BsonDocument embeddedEntity,
                                          EmbeddedMigration migration,
                                          EmbeddedFieldDefinitions fieldDef) {
