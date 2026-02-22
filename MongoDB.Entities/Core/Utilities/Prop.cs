@@ -79,17 +79,6 @@ public static class Prop
         return expression.MemberInfo().Name;
     }
     
-    /*/// <summary>
-    /// Returns the name of the property for a given expression.
-    /// <para>EX: Authors[0].Books[0].Title > Title</para>
-    /// </summary>
-    /// <param name="expression">x => x.SomeList[0].SomeProp</param>
-    public static string EmbeddedProperty<T>(Expression<Func<T, object?>> expression) {
-        ThrowIfInvalid(expression);
-        
-        return expression.MemberInfo().Name;
-    }*/
-
     /// <summary>
     /// Returns the full dotted path for a given expression.
     /// <para>EX: Authors[0].Books[0].Title > Authors.Books.Title</para>

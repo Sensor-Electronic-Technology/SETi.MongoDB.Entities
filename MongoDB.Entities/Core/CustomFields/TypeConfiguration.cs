@@ -141,7 +141,7 @@ public class EmbeddedTypeConfiguration : TypeConfiguration {
     //public string ParentCollection { get; set; }
     //public Dictionary<string, List<Field>> FieldDefinitions { get; set; } = [];
     //public bool IsArray { get; set; } = false;
-    public Dictionary<string, EmbeddedFieldDefinitions> FieldDefinitions { get; set; } = [];
+    public Dictionary<string, EmbeddedPropertyConfig> EmbeddedPropertyConfigs { get; set; } = [];
 
     public Many<EmbeddedMigration, EmbeddedTypeConfiguration> EmbeddedMigrations { get; set; }
 
@@ -150,7 +150,7 @@ public class EmbeddedTypeConfiguration : TypeConfiguration {
     }
 }
 
-public class EmbeddedFieldDefinitions {
+public class EmbeddedPropertyConfig {
     public string DatabaseName { get; set; } = null!;
     public string ParentCollection { get; set; } = null!;
     public bool IsArray { get; set; } = false;

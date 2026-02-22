@@ -7,8 +7,8 @@ using System.Threading.Tasks;
 
 namespace MongoDB.Entities;
 
-public class ConfigureType<TEntity>(DB db) where TEntity : IDocumentEntity {
-    private List<Embedded<TEntity>> _embeddedProperties = [];
+/*public class ConfigureType<TEntity>(DB db) where TEntity : IDocumentEntity {
+    private List<EmbeddedProperty<TEntity>> _embeddedProperties = [];
     
     public ConfigureType<TEntity> RegisterEmbedded(Expression<Func<TEntity, object?>> embeddedProperty) {
         this._embeddedProperties.Add(new(embeddedProperty));
@@ -39,13 +39,13 @@ public class ConfigureType<TEntity>(DB db) where TEntity : IDocumentEntity {
             
         }
     }
-}
+}*/
 
-public class Embedded<TDoc> where TDoc : IDocumentEntity {
+/*public class Embedded<TDoc> where TDoc : IDocumentEntity {
     public string PropertyName { get; set; }
     //public string PropertyName { get; set; }
     /*public string? OwningPropertyName { get; set; } = null;
-    public bool IsEmbeddedInProperty { get; set; } = false;*/
+    public bool IsEmbeddedInProperty { get; set; } = false;#1#
     public Type Type { get; set; }
     public bool IsArray { get; set; } = false;
 
@@ -53,18 +53,6 @@ public class Embedded<TDoc> where TDoc : IDocumentEntity {
         this.PropertyName=Prop.Path(expression);
         if (this.PropertyName.Contains('.')) {
             throw new InvalidOperationException($"Cannot register embedded property {this.PropertyName}, EmbeddedEntities are only supported on top level properties.");
-            /*var parts=this.FullPath.Split('.');
-            PropertyName = parts[0];
-            IsEmbeddedInProperty = true;
-            this.OwningPropertyName = parts[1];
-            var type = typeof(TDoc).GetProperty(this.FullPath)?.PropertyType;
-            if(type==null)
-                throw new InvalidOperationException($"Could not find property {this.FullPath} on type {typeof(TDoc).FullName}");
-
-            if (!type.IsAssignableTo(typeof(IEnumerable<>))) {
-                throw new InvalidOperationException($"Property {this.FullPath} on type {typeof(TDoc).FullName} does not implement IEmbedded");
-            }
-            Type = type;*/
         }
         
         var type = typeof(TDoc).GetProperty(this.PropertyName)?.PropertyType;
@@ -91,4 +79,4 @@ public class Embedded<TDoc> where TDoc : IDocumentEntity {
         }
 
     }
-}
+}*/

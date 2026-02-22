@@ -24,55 +24,58 @@ await db.ApplyMigrations();*/
 /*await GenerateEpiData();
 await DynamicQueryTesting();*/
 
+EmbeddedTypeConfigBuilder builder = new EmbeddedTypeConfigBuilder();
+builder.HasEmbeddedPropertyConfig<EpiRun>(b => b.ForProperty(e => e.TestEmbeddedNotArray)
+                                                .HasField<ValueField, ValueFieldBuilder>(r => 
+                                                    r.FieldName("Test Embedded Not Array")
+                                                     .ValueInfo(0.00)
+                                                     .Type(DataType.NUMBER)));
 
-string TestSelector<TEntity>(Expression<Func<TEntity, object?>> selector) {
-    return Prop.Path(selector);
-}
+
 
 void TestingBuilders() {
     var filter = FilterBuilder.CreateBuilder()
-                          .FieldName(nameof(QtMeasurement.Power))
-                          .Value(1100)
-                          .ComparisonOperator(ComparisonOperator.LessThanOrEqual)
-                          .LogicalOperator(LogicalOperator.And)
-                          .HasFilter(f => f.FieldName(nameof(QtMeasurement.Power))
-                                           .Value(500)
-                                           .ComparisonOperator(ComparisonOperator.GreaterThan)
-                                           .LogicalOperator(LogicalOperator.And)
-                                           .Build())
-                          .HasFilter(f => f.FieldName(nameof(QtMeasurement.Wavelength))
-                                           .Value(270)
-                                           .ComparisonOperator(ComparisonOperator.GreaterThanOrEqual)
-                                           .LogicalOperator(LogicalOperator.And)
-                                           .HasFilter(fs=>fs.FieldName(nameof(QtMeasurement.Wavelength))
-                                                            .Value(279)
-                                                            .ComparisonOperator(ComparisonOperator.LessThanOrEqual)
-                                                            .LogicalOperator(LogicalOperator.Or)
-                                                            .Build())
-                                           .Build())
-                          .Build();
+                              .FieldName(nameof(QtMeasurement.Power))
+                              .Value(1100)
+                              .ComparisonOperator(ComparisonOperator.LessThanOrEqual)
+                              .LogicalOperator(LogicalOperator.And)
+                              .HasFilter(f => f.FieldName(nameof(QtMeasurement.Power))
+                                               .Value(500)
+                                               .ComparisonOperator(ComparisonOperator.GreaterThan)
+                                               .LogicalOperator(LogicalOperator.And)
+                                               .Build())
+                              .HasFilter(f => f.FieldName(nameof(QtMeasurement.Wavelength))
+                                               .Value(270)
+                                               .ComparisonOperator(ComparisonOperator.GreaterThanOrEqual)
+                                               .LogicalOperator(LogicalOperator.And)
+                                               .HasFilter(fs => fs.FieldName(nameof(QtMeasurement.Wavelength))
+                                                                  .Value(279)
+                                                                  .ComparisonOperator(
+                                                                      ComparisonOperator.LessThanOrEqual)
+                                                                  .LogicalOperator(LogicalOperator.Or)
+                                                                  .Build())
+                                               .Build())
+                              .Build();
 
-var field = ObjectFieldBuilder.Create()
-                              .FieldName("Qt Summary")
-                              .Types(BsonType.Document, TypeCode.Object)
-                              .HasField<ObjectField,ObjectFieldBuilder>(builder=>builder
-                                  .FieldName(nameof(QtMeasurement.Power))
-                                  .Types(BsonType.Double,TypeCode.Double)
-                                  .HasField<CalculatedField,CalculatedFieldBuilder>(builder=>builder
-                                      .FieldName("Avg. Initial Power")
+    /*var field = ObjectFieldBuilder.Create()
+                                  .FieldName("Qt Summary")
+                                  .Types(BsonType.Document, TypeCode.Object)
+                                  .HasField<ObjectField,ObjectFieldBuilder>(builder=>builder
+                                      .FieldName(nameof(QtMeasurement.Power))
                                       .Types(BsonType.Double,TypeCode.Double)
-                                      .ValueInfo(0.00)
-                                      .WithExpression("avg([powers])")
-                                      .HasVariable<OwnedCollectionPropertyVariable,CollectionPropertyVarBuilder>(
-                                          vb=>vb.Property<QtMeasurement>(e=>e.Power)
-                                                .DataType(DataType.LIST_NUMBER)
-                                                .VariableName("powers")
-                                                .CollectionProperty<QuickTest>(p=>p.InitialMeasurements).Build()))
-                                  .Build());
+                                      .HasField<CalculatedField,CalculatedFieldBuilder>(builder=>builder
+                                          .FieldName("Avg. Initial Power")
+                                          .Types(BsonType.Double,TypeCode.Double)
+                                          .ValueInfo(0.00)
+                                          .WithExpression("avg([powers])")
+                                          .HasVariable<OwnedCollectionPropertyVariable,CollectionPropertyVarBuilder>(
+                                              vb=>vb.Property<QtMeasurement>(e=>e.Power)
+                                                    .DataType(DataType.LIST_NUMBER)
+                                                    .VariableName("powers")
+                                                    .CollectionProperty<QuickTest>(p=>p.InitialMeasurements).Build()))
+                                      .Build());*/
 
-
-
-Console.WriteLine(filter.ToString());
+    Console.WriteLine(filter.ToString());
 }
 
 async Task DynamicQueryTesting() {
@@ -188,7 +191,7 @@ async Task BuildEmbeddedMigration() {
 
     //await typeConfig.SaveAsync();
     await DB.Default.SaveAsync(typeConfig);
-    var migration = builder.Build(typeConfig, migrationNumber, nameof(QuickTest) ?? string.Empty);
+    var migration = builder.Build(typeConfig, migrationNumber, nameof(QuickTest));
 
     //await migration.SaveAsync();
     await DB.Default.SaveAsync(migration);
@@ -289,7 +292,6 @@ async Task BuildMigration() {
                                 }
                             }
                         },
-                        
                     }
                 ]
             },

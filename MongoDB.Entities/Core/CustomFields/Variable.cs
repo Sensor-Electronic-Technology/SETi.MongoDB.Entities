@@ -47,6 +47,15 @@ public class OwnedEmbeddedPropertyVariable : PropertyVariable {
 }
 
 /// <summary>
+/// Collection in the owning entity
+/// Object.Collection.Where(Filter).Property
+/// </summary>
+public class OwnedCollectionPropertyVariable:PropertyVariable {
+    public string CollectionProperty { get; set; } = null!;
+    public Filter? Filter { get; set; }
+}
+
+/// <summary>
 /// Property from a reference collection
 /// Database.Collection.Collection.Where(Filter).Select(Property)
 /// If(FilterOnEntityId) Database.Collection.Where(EntityIdFilter && Filter).Select(Property)
@@ -61,14 +70,7 @@ public class ExternalPropertyVariable:PropertyVariable {
     
 }
 
-/// <summary>
-/// Collection in the owning entity
-/// Object.Collection.Where(Filter).Property
-/// </summary>
-public class OwnedCollectionPropertyVariable:PropertyVariable {
-    public string CollectionProperty { get; set; } = null!;
-    public Filter? Filter { get; set; }
-}
+
 
 /// <summary>
 /// Property from a reference collection with output of list type

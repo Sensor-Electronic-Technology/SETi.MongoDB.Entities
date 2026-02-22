@@ -138,7 +138,7 @@ public partial class DB {
             typeConfig.TypeName,
             migration.MigrationNumber);
 
-        if (!typeConfig.FieldDefinitions.TryGetValue(migration.ParentTypeName, out var fieldDef)) {
+        if (!typeConfig.EmbeddedPropertyConfigs.TryGetValue(migration.ParentTypeName, out var fieldDef)) {
             Log(LogLevel.Error, "Failed to migrate EmbeddedMigration for {ParentCollect}", migration.ParentTypeName);
 
             return;
@@ -382,7 +382,7 @@ public partial class DB {
 
         var typeConfig = await migration.EmbeddedTypeConfiguration.ToEntityAsync(_defaultInstance);
 
-        if (!typeConfig.FieldDefinitions.TryGetValue(migration.ParentTypeName, out var fieldDef)) {
+        if (!typeConfig.EmbeddedPropertyConfigs.TryGetValue(migration.ParentTypeName, out var fieldDef)) {
             Log(LogLevel.Error, "FieldDefinitions for ParentType {Parent} are missing", migration.ParentTypeName);
 
             return;
@@ -483,9 +483,9 @@ public partial class DB {
         typeConfig.DocumentVersion = version;
 
         if (fieldDef.Fields.Count == 0) {
-            typeConfig.FieldDefinitions.Remove(migration.ParentTypeName);
+            typeConfig.EmbeddedPropertyConfigs.Remove(migration.ParentTypeName);
         } else {
-            typeConfig.FieldDefinitions[migration.ParentTypeName]
+            typeConfig.EmbeddedPropertyConfigs[migration.ParentTypeName]
                       .UpdateAvailableProperties(migration.ParentTypeName);
         }
 
@@ -525,7 +525,13 @@ public partial class DB {
                         object result = ((bool)expression.Evaluate()) ? calcField.TrueValue : calcField.FalseValue;
                         doc[calcField.FieldName] = BsonValue.Create(result);
                     } else {
-                        doc[calcField.FieldName] = BsonValue.Create(expression.Evaluate());
+                        var value=BsonValue.Create(expression.Evaluate());
+                        if (vField.CanRound()) {
+                            if (vField.DataType == DataType.NUMBER) {
+                                value = Math.Round(value.AsDouble, vField.DecimalPlaces);
+                            }
+                        }
+                        doc[calcField.FieldName] = value;
                     }
                 } else {
                     if (!doc.Contains(vField.FieldName)) {
@@ -562,9 +568,25 @@ public partial class DB {
             var expression = await ProcessCalculationField(cField, doc, entity);
             doc.Add(cField.FieldName, BsonValue.Create(expression.Evaluate()));
         } else if (field is ReferenceField rField) {
-            /*var value = await this.ProcessReferenceField(rField, doc, entity);
-            doc.Add(rField.FieldName, BsonValue.Create(value));*/
+            var value = await this.ProcessReferenceField(rField, doc, entity);
+            doc.Add(rField.FieldName, BsonValue.Create(value));
         }
+    }
+    
+    internal async Task<object> ProcessReferenceField(ReferenceField rField, BsonDocument doc, BsonDocument entity) {
+        var rVar=rField.ExternalPropertyVariable;
+        
+        var refQuery = Collection(rVar.DatabaseName, rVar.CollectionName).AsQueryable();
+
+        if (rVar.FilterOnEntityId) {
+            refQuery = refQuery.Where(e => e[rVar.RefEntityIdProperty] == entity[rVar.RefEntityIdProperty]);
+        }
+
+        if (rVar.Filter != null) {
+            refQuery = refQuery.Where(rVar.Filter.ToString());
+        }
+        
+        return refQuery.ToDataType(rVar.DataType,rVar.Property);
     }
 
     internal async Task<ExtendedExpression> ProcessCalculationField(CalculatedField cField,
@@ -615,8 +637,8 @@ public partial class DB {
                                         ? entity[cVar.CollectionProperty].AsBsonArray.AsQueryable()
                                                                          .Where(cVar.Filter.ToString())
                                         : entity[cVar.CollectionProperty].AsBsonArray.AsQueryable();
-
-                            if (query.Count() != 0) {
+                            expression.Parameters[cVar.VariableName]=query.ToDataType(cVar.DataType,cVar.Property);
+                            /*if (query.Count() != 0) {
                                 expression.Parameters[cVar.VariableName] = cVar.DataType switch {
                                     DataType.NUMBER => query.Select($"e=>e.{cVar.Property}.AsDouble").FirstOrDefault(),
                                     DataType.STRING =>
@@ -642,7 +664,7 @@ public partial class DB {
                                         { DateTime.MinValue, DateTime.MinValue, DateTime.MinValue },
                                     _ => throw new ArgumentException("Empty Value type not supported")
                                 };
-                            }
+                            }*/
                         }
 
                         break;
@@ -657,8 +679,9 @@ public partial class DB {
                         if (rVar.Filter != null) {
                             refQuery = refQuery.Where(rVar.Filter.ToString());
                         }
+                        expression.Parameters[rVar.VariableName]=refQuery.ToDataType(rVar.DataType,rVar.Property);
 
-                        if (refQuery.Any()) {
+                        /*if (refQuery.Any()) {
                             expression.Parameters[rVar.VariableName] = rVar.DataType switch {
                                 DataType.NUMBER => refQuery.Select(e => e[rVar.Property].As(DataTypeMap.BsonTypeLookup[rVar.DataType])).FirstOrDefault(),
                                 DataType.STRING => refQuery.Select(e => e[rVar.Property].As(DataTypeMap.BsonTypeLookup[rVar.DataType])).FirstOrDefault(),
@@ -682,7 +705,7 @@ public partial class DB {
                                 DataType.LIST_DATE => new List<DateTime>(),
                                 _ => throw new ArgumentException("Empty Value type not supported")
                             };
-                        }
+                        }*/
 
                         break;
                     }
@@ -705,8 +728,9 @@ public partial class DB {
                         if (rcVar.SubFilter != null) {
                             query.AsQueryable().Where(rcVar.SubFilter.ToString());
                         }
-
-                        if (query.Count() != 0) {
+                        expression.Parameters[rcVar.VariableName]=query.ToDataType(rcVar.DataType,rcVar.Property);
+                        /*if (query.Count() != 0) {
+                            expression.Parameters[rcVar.VariableName]=query.Convert(rcVar.DataType,rcVar.Property);
                             expression.Parameters[rcVar.VariableName] = rcVar.DataType switch {
                                 DataType.NUMBER => query.Select(e => e[rcVar.Property].AsDouble).FirstOrDefault(),
                                 DataType.STRING => query.Select(e => e[rcVar.Property].AsString).FirstOrDefault(),
@@ -731,12 +755,13 @@ public partial class DB {
                                 DataType.LIST_DATE => new List<DateTime>(),
                                 _ => throw new ArgumentException("Empty Value type not supported")
                             };
-                        }
+                        }*/
 
                         break;
                     }
                     default: {
-                        if (entity.Contains(pVar.Property)) {
+                        expression.Parameters[pVar.Property]=entity.ToDataType(pVar.DataType,pVar.Property);
+                        /*if (entity.Contains(pVar.Property)) {
                             expression.Parameters[pVar.VariableName] = pVar.DataType switch {
                                 DataType.NUMBER => entity[pVar.Property].AsDouble,
                                 DataType.STRING => entity[pVar.Property].AsString,
@@ -762,7 +787,7 @@ public partial class DB {
                                 _ => throw new ArgumentException(
                                          $"Empty Value type not supported, Property: {pVar.Property} DataType: {pVar.DataType}")
                             };
-                        }
+                        }*/
 
                         break;
                     }
@@ -775,7 +800,7 @@ public partial class DB {
     
     internal async Task RevertOperations(BsonDocument embeddedEntity,
                                          EmbeddedMigration migration,
-                                         EmbeddedFieldDefinitions fieldDef) {
+                                         EmbeddedPropertyConfig fieldDef) {
         var doc = embeddedEntity.GetElement("AdditionalData").Value.ToBsonDocument();
 
         if (doc.Contains("_csharpnull")) {
@@ -826,7 +851,7 @@ public partial class DB {
 
     internal async Task ApplyEmbeddedMigrationOperations(BsonDocument embeddedDoc,
                                                          EmbeddedMigration migration,
-                                                         EmbeddedFieldDefinitions fieldDef) {
+                                                         EmbeddedPropertyConfig fieldDef) {
         var addDataDoc = embeddedDoc.GetElement("AdditionalData").Value.ToBsonDocument();
 
         if (addDataDoc == null || addDataDoc.Contains("_csharpnull")) {

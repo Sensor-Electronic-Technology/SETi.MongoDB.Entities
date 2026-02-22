@@ -14,10 +14,10 @@ public abstract class FieldBuilderBase<TField, TFieldBuilder>
         return this.Builder;
     }
 
-    public virtual TFieldBuilder Types(DataType dataType) {
+    public virtual TFieldBuilder Type(DataType dataType) {
         this.Field.DataType = dataType;
-        this.Field.TypeCode = DataTypeMap.TypeCodeLookup[dataType];
-        this.Field.BsonType = DataTypeMap.BsonTypeLookup[dataType];
+        this.Field.TypeCode = dataType.ToTypeCode();
+        this.Field.BsonType = dataType.ToBsonType();
         return this.Builder;
     }
 
@@ -28,7 +28,7 @@ public abstract class FieldBuilderBase<TField, TFieldBuilder>
     }
 
     public TField Build() {
-        return Field;
+        return this.Field;
     }
 
     public static TFieldBuilder Create()
@@ -49,104 +49,106 @@ public class ObjectFieldBuilder : FieldBuilderBase<ObjectField, ObjectFieldBuild
         Field.Fields.Add(builder.Build());
         return this;
     }
+    
+    public ObjectFieldBuilder HasField(Field field) {
+        Field.Fields.Add(field);
+        return this.Builder;
+    }
 
     protected override ObjectFieldBuilder Builder => this;
     protected override ObjectField Field { get; } = new();
 }
-
-public class SelectionFieldBuilder : FieldBuilderBase<SelectionField, SelectionFieldBuilder> {
-    protected override SelectionFieldBuilder Builder => this;
-    protected override SelectionField Field { get; } = new();
-
-    public SelectionFieldBuilder WithSelectionOptions(params (string, object)[] selections) {
-        this.Field.SelectionDictionary = selections.ToDictionary();
-        return this.Builder;
-    }
-
-    public SelectionFieldBuilder DefaultValue(object defaultValue) {
-        this.Field.DefaultValue = defaultValue;
-        return this.Builder;
-    }
-}
-
 public class ValueFieldBuilder : FieldBuilderBase<ValueField, ValueFieldBuilder> {
     protected override ValueFieldBuilder Builder => this;
     protected override ValueField Field { get; } = new();
 
-    public ValueFieldBuilder DataType(DataType type) {
-        this.Field.DataType = type;
-        return this.Builder;
+    public override ValueFieldBuilder Type(DataType dataType) {
+        this.Field.DefaultValue = dataType.GetDefault();
+        return base.Type(dataType);
     }
-
+    
     public ValueFieldBuilder ValueInfo(object? defaultValue = null,
-                                          string? unitName = null,
-                                          string? quantityName = null) {
+                                       string? unitName = null,
+                                       string? quantityName = null) {
         this.Field.DefaultValue = defaultValue;
         this.Field.UnitName = unitName;
         this.Field.QuantityName = quantityName;
         return this.Builder;
     }
 }
-
 public class ReferenceFieldBuilder : FieldBuilderBase<ReferenceField, ReferenceFieldBuilder> {
     protected override ReferenceFieldBuilder Builder => this;
     protected override ReferenceField Field { get; } = new();
-    
-    public ReferenceFieldBuilder FilterOnId<TSource, T>(Expression<Func<TSource, object?>> idExpression, Expression<Func<T, object?>> refIdExpression) {
-        this.Field.FilterOnEntityId = true;
-        this.Field.EntityIdProperty = Prop.Path(idExpression);
-        this.Field.RefEntityIdProperty = Prop.Path(refIdExpression);
-        return this.Builder;
-    }
-    
-    public ReferenceFieldBuilder FilterOnId(string idProperty, string refIdProperty) {
-        this.Field.FilterOnEntityId = true;
-        this.Field.EntityIdProperty = idProperty;
-        this.Field.RefEntityIdProperty = refIdProperty;
-        return this.Builder;
-    }
-    
-    /*public ReferenceFieldBuilder Database(string database) {
-        this.Field.DatabaseName = database;
-        return this.Builder;
-    }
-    
-    public ReferenceFieldBuilder Collection(string collection) {
-        this.Field.CollectionName = collection;
-        return this.Builder;
-    }
-    
-    public ReferenceFieldBuilder ReferenceProperty<TEntity>(
-        Expression<Func<TEntity, object?>> propertyExpression) {
-        /*if(Prop.Property(propertyExpression).GetType().IsArray)#1#
-        this.Field.ReferenceProperty = Prop.Path(propertyExpression);
-        return this.Builder;
-    }
-    
-    public ReferenceFieldBuilder ReferenceProperty(string property) {
-        this.Field.ReferenceProperty = property;
-        return this.Builder;
-    }*/
-    
-}
 
+    public override ReferenceFieldBuilder Type(DataType dataType) {
+        this.Field.DefaultValue = dataType.GetDefault();
+        return base.Type(dataType);
+    }
+
+    public ReferenceFieldBuilder HasVariable(Action<ExternPropertyValBuilder> variableBuilder) {
+        var varBuilder=new ExternPropertyValBuilder();
+        variableBuilder(varBuilder);
+        this.Field.ExternalPropertyVariable = varBuilder.Build();
+        return this;
+    }
+
+    public ReferenceFieldBuilder HasVariable(ExternalPropertyVariable variable) {
+        this.Field.ExternalPropertyVariable = variable;
+        return this.Builder;
+    }
+}
+public class SelectionFieldBuilder : FieldBuilderBase<SelectionField, SelectionFieldBuilder> {
+    protected override SelectionFieldBuilder Builder => this;
+    protected override SelectionField Field { get; } = new();
+
+    public SelectionFieldBuilder WithSelectionOptions(string defaultKey,(string, object)[] selections) {
+        this.Field.SelectionDictionary = selections.ToDictionary();
+        this.Field.DefaultValue =this.Field.SelectionDictionary[defaultKey];
+        return this.Builder;
+    }
+    
+    public SelectionFieldBuilder HasSelectionOption(string key, object value) {
+        this.Field.SelectionDictionary.Add(key, value);
+        return this.Builder;
+    }
+    
+    public SelectionFieldBuilder HasDefaultKey(string key) {
+        if (!this.Field.SelectionDictionary.ContainsKey(key)) {
+            throw new ArgumentException($"The key '{key}' does not exist in the selection dictionary");
+        }
+        this.Field.DefaultValue = this.Field.SelectionDictionary[key];
+        return this.Builder;
+    }
+}
 public class CalculatedFieldBuilder : FieldBuilderBase<CalculatedField, CalculatedFieldBuilder> {
     
     protected override CalculatedFieldBuilder Builder => this;
     protected override CalculatedField Field { get; } = new();
 
+    public override CalculatedFieldBuilder Type(DataType dataType) {
+        this.Field.DefaultValue = dataType.GetDefault();
+        return base.Type(dataType);
+    }
+    
     public CalculatedFieldBuilder ValueInfo(object? defaultValue = null,
-                                               string? unitName = null,
-                                               string? quantityName = null) {
+                                            string? unitName = null,
+                                            string? quantityName = null) {
         this.Field.DefaultValue = defaultValue;
         this.Field.UnitName = unitName;
         this.Field.QuantityName = quantityName;
-        return this;
+        return this.Builder;
     }
 
-    public CalculatedFieldBuilder WithExpression(string expression) {
+    public CalculatedFieldBuilder Expression(string expression) {
         this.Field.Expression = expression;
-        return this;
+        return this.Builder;
+    }
+    
+    public CalculatedFieldBuilder IsBooleanExpression(object trueValue, object falseValue) {
+        this.Field.IsBooleanExpression = true;
+        this.Field.TrueValue = trueValue;
+        this.Field.FalseValue = falseValue;
+        return this.Builder;
     }
 
     public CalculatedFieldBuilder HasVariable<TVar,TBuilder>(Action<TBuilder> variableBuilder)
@@ -154,13 +156,12 @@ public class CalculatedFieldBuilder : FieldBuilderBase<CalculatedField, Calculat
         var varBuilder=new TBuilder();
         variableBuilder(varBuilder);
         this.Field.Variables.Add(varBuilder.Build());
-        return this;
+        return this.Builder;
     }
 
-    public CalculatedFieldBuilder IsBooleanExpression(object trueValue, object falseValue) {
-        this.Field.IsBooleanExpression = true;
-        this.Field.TrueValue = trueValue;
-        this.Field.FalseValue = falseValue;
-        return this;
+    public CalculatedFieldBuilder HasVariable(Variable variable) {
+        this.Field.Variables.Add(variable);
+        return this.Builder;
     }
+
 }

@@ -59,8 +59,8 @@ public partial class DB {
         typeConfig.AvailableProperties = [];
 
         foreach (var prop in type.GetProperties()) {
-            if (prop.Name == nameof(IDocumentEntity.AdditionalData))
-                continue;
+            /*if (prop.Name == nameof(IDocumentEntity.AdditionalData))
+                continue;*/
 
             typeConfig.AvailableProperties.Add(
                 prop.Name,
@@ -96,7 +96,7 @@ public partial class DB {
                 TypeName = typeName,
             };
 
-            if (!typeConfig.FieldDefinitions.TryGetValue(parentTypeName, out var fieldDef)) {
+            if (!typeConfig.EmbeddedPropertyConfigs.TryGetValue(parentTypeName, out var fieldDef)) {
                 fieldDef = new() {
                     DatabaseName = DatabaseName(),
                     ParentCollection = CollectionName<TEntity>(),
@@ -105,7 +105,7 @@ public partial class DB {
                     Fields = [],
                     AvailableProperties = []
                 };
-                typeConfig.FieldDefinitions[parentTypeName] = fieldDef;
+                typeConfig.EmbeddedPropertyConfigs[parentTypeName] = fieldDef;
             }
 
             foreach (var prop in type.GetProperties()) {
@@ -118,7 +118,7 @@ public partial class DB {
 
             return typeConfig;
         } else {
-            if (!typeConfig.FieldDefinitions.TryGetValue(parentTypeName, out var fieldDef)) {
+            if (!typeConfig.EmbeddedPropertyConfigs.TryGetValue(parentTypeName, out var fieldDef)) {
                 fieldDef = new() {
                     DatabaseName = DatabaseName(),
                     ParentCollection = CollectionName<TEntity>(),
@@ -127,7 +127,7 @@ public partial class DB {
                     Fields = [],
                     AvailableProperties = []
                 };
-                typeConfig.FieldDefinitions[parentTypeName] = fieldDef;
+                typeConfig.EmbeddedPropertyConfigs[parentTypeName] = fieldDef;
             }
 
             foreach (var prop in type.GetProperties()) {
@@ -138,7 +138,7 @@ public partial class DB {
             }
             var result = await Update<EmbeddedTypeConfiguration>()
                                .Match(e => e.ID == typeConfig.ID)
-                               .Modify(e => e.Set(p => p.FieldDefinitions, typeConfig.FieldDefinitions))
+                               .Modify(e => e.Set(p => p.EmbeddedPropertyConfigs, typeConfig.EmbeddedPropertyConfigs))
                                .Modify(e => e.Set(p => p.TypeName, typeConfig.TypeName))
                                .Modify(e => e.Set(p => p.DocumentVersion, typeConfig.DocumentVersion))
                                .ExecuteAsync();
@@ -146,76 +146,4 @@ public partial class DB {
             return result.IsAcknowledged ? typeConfig : null;
         }
     }
-
-    /*public async Task<EmbeddedTypeConfiguration?> CreateEmbeddedOnline<TEntity, TEmbedded>(List<string> propertyNames,
-        bool isArray = false)
-        where TEntity : IDocumentEntity where TEmbedded : IEmbeddedEntity {
-        Type type = typeof(TEmbedded);
-        Type parent = typeof(TEntity);
-        var typeName = type.Name;
-        var parentTypeName = parent.Name;
-
-        if (string.IsNullOrEmpty(typeName) || string.IsNullOrEmpty(parentTypeName)) {
-            return null;
-        }
-
-        var typeConfig = await Find<EmbeddedTypeConfiguration>()
-                               .Match(e => e.TypeName == typeName)
-                               .ExecuteSingleAsync();
-
-        if (typeConfig == null) {
-            typeConfig = new() {
-                TypeName = typeName,
-            };
-
-            if (!typeConfig.FieldDefinitions.TryGetValue(parentTypeName, out var fieldDef)) {
-                fieldDef = new() {
-                    DatabaseName = DatabaseName(),
-                    ParentCollection = CollectionName<TEntity>(),
-                    PropertyNames = propertyNames,
-                    IsArray = isArray,
-                    Fields = [],
-                    AvailableProperties = []
-                };
-                typeConfig.FieldDefinitions[parentTypeName] = fieldDef;
-            }
-
-            foreach (var prop in type.GetProperties()) {
-                if (prop.Name == nameof(IEmbeddedEntity.AdditionalData))
-                    continue;
-
-                fieldDef.AvailableProperties[prop.Name] = new() { TypeCode = Type.GetTypeCode(prop.PropertyType) };
-            }
-            await InsertAsync(typeConfig);
-
-            return typeConfig;
-        } else {
-            if (!typeConfig.FieldDefinitions.TryGetValue(parentTypeName, out var fieldDef)) {
-                fieldDef = new() {
-                    DatabaseName = DatabaseName(),
-                    ParentCollection = CollectionName<TEntity>(),
-                    PropertyNames = propertyNames,
-                    IsArray = isArray,
-                    Fields = [],
-                    AvailableProperties = []
-                };
-                typeConfig.FieldDefinitions[parentTypeName] = fieldDef;
-            }
-
-            foreach (var prop in type.GetProperties()) {
-                if (prop.Name == nameof(IEmbeddedEntity.AdditionalData))
-                    continue;
-
-                fieldDef.AvailableProperties[prop.Name] = new() { TypeCode = Type.GetTypeCode(prop.PropertyType) };
-            }
-            var result = await Update<EmbeddedTypeConfiguration>()
-                               .Match(e => e.ID == typeConfig.ID)
-                               .Modify(e => e.Set(p => p.FieldDefinitions, typeConfig.FieldDefinitions))
-                               .Modify(e => e.Set(p => p.TypeName, typeConfig.TypeName))
-                               .Modify(e => e.Set(p => p.DocumentVersion, typeConfig.DocumentVersion))
-                               .ExecuteAsync();
-
-            return result.IsAcknowledged ? typeConfig : null;
-        }
-    }*/
 }

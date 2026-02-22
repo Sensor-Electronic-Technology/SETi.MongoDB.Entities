@@ -44,7 +44,7 @@ public class Field : IEquatable<Field> {
     public int DecimalPlaces { get; set; }
 
     public bool CanRound()
-        => this.DataType is DataType.NUMBER or DataType.LIST_NUMBER;
+        => this.Round && (this.DataType is DataType.NUMBER or DataType.LIST_NUMBER);
 
     public virtual KeyValuePair<string, FieldInfo> ToFieldInfo() {
         return new(FieldName, new() { TypeCode = TypeCode });
@@ -109,13 +109,6 @@ public class ValueField : Field {
 
 public class ReferenceField : Field {
     public object? DefaultValue { get; set; }
-
-    /*public string CollectionName { get; set; } = null!;
-    public string DatabaseName { get; set; } = null!;
-    public string ReferenceProperty { get; set; } = null!;*/
-    public bool FilterOnEntityId { get; set; } = false;
-    public string EntityIdProperty { get; set; } = string.Empty;
-    public string RefEntityIdProperty { get; set; } = string.Empty;
     public ExternalPropertyVariable ExternalPropertyVariable { get; set; } = null!;
 }
 
