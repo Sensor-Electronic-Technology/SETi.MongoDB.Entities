@@ -5,10 +5,12 @@ public enum DataType {
     STRING,
     BOOLEAN,
     DATE,
+    DOCUMENT,
     LIST_NUMBER,
     LIST_STRING,
     LIST_BOOLEAN,
-    LIST_DATE
+    LIST_DATE,
+    LIST_DOCUMENT,
 }
 
 

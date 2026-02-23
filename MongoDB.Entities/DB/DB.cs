@@ -18,20 +18,19 @@ namespace MongoDB.Entities;
 /// <summary>
 /// The main entrypoint for all data access methods of the library
 /// </summary>
-public partial class DB
-{
-    static DB()
-    {
+public partial class DB {
+    static DB() {
         BsonSerializer.RegisterSerializer(new DateSerializer());
         BsonSerializer.RegisterSerializer(new FuzzyStringSerializer());
         BsonSerializer.RegisterSerializer(new DocumentVersionSerializer());
         BsonSerializer.RegisterSerializer(typeof(decimal), new DecimalSerializer(BsonType.Decimal128));
-        BsonSerializer.RegisterSerializer(typeof(decimal?), new NullableSerializer<decimal>(new DecimalSerializer(BsonType.Decimal128)));
+        BsonSerializer.RegisterSerializer(
+            typeof(decimal?),
+            new NullableSerializer<decimal>(new DecimalSerializer(BsonType.Decimal128)));
 
         ConventionRegistry.Register(
             "DefaultConventions",
-            new ConventionPack
-            {
+            new ConventionPack {
                 new IgnoreExtraElementsConvention(true),
                 new IgnoreManyPropsConvention()
             },
@@ -48,16 +47,14 @@ public partial class DB
     private static readonly ILogger _logger = AppLogger.CreateLogger("DB");
     public static bool LoggingEnabled { get; set; }
 
-    protected DB(DB source)
-    {
+    protected DB(DB source) {
         _mongoDb = source.Database();
         _globalFilters = source._globalFilters;
         IgnoreGlobalFilters = source.IgnoreGlobalFilters;
         ModifiedBy = source.ModifiedBy;
     }
 
-    private DB(IMongoDatabase db)
-    {
+    private DB(IMongoDatabase db) {
         _mongoDb = db;
     }
 
@@ -90,22 +87,19 @@ public partial class DB
                                            MongoClientSettings? clientSettings = null,
                                            MongoDatabaseSettings? databaseSettings = null,
                                            bool skipNetworkPing = false,
-                                           bool enableLogging=false)
-    {
-        if (clientSettings == null)
-        {
+                                           bool enableLogging = false) {
+        if (clientSettings == null) {
             clientSettings = _clients.Count == 0
                                  ? new() { Server = new("127.0.0.1", 27017) }
                                  : _defaultClientSettings;
         }
-        
+
         LoggingEnabled = enableLogging;
 
         if (string.IsNullOrEmpty(dbName))
             throw new ArgumentNullException(nameof(dbName), "Database name cannot be empty!");
 
-        if (!_clients.TryGetValue(clientSettings, out var client))
-        {
+        if (!_clients.TryGetValue(clientSettings, out var client)) {
             client = new(clientSettings);
             _clients.TryAdd(clientSettings, client);
             _clientInstances.TryAdd(client, new());
@@ -117,10 +111,8 @@ public partial class DB
         if (!_clientInstances.TryGetValue(client, out var instances))
             throw new InvalidOperationException("clientInstances is not initialized");
 
-        if (!instances.TryGetValue(dbName, out var db))
-        {
-            try
-            {
+        if (!instances.TryGetValue(dbName, out var db)) {
+            try {
                 var mongoDatabase = client.GetDatabase(dbName, databaseSettings);
                 db = new(mongoDatabase);
 
@@ -129,9 +121,7 @@ public partial class DB
 
                 if (instances.TryAdd(dbName, db) && !skipNetworkPing)
                     await mongoDatabase.RunCommandAsync((Command<BsonDocument>)"{ping:1}").ConfigureAwait(false);
-            }
-            catch (Exception)
-            {
+            } catch (Exception) {
                 instances.TryRemove(dbName, out _);
 
                 throw;
@@ -140,7 +130,7 @@ public partial class DB
 
         return db;
     }
-    
+
     /// <summary>
     /// Gets a list of all database names from the server
     /// </summary>
@@ -154,7 +144,8 @@ public partial class DB
     /// </summary>
     /// <param name="settings">A MongoClientSettings object</param>
     public static async Task<IEnumerable<string>> AllDatabaseNamesAsync(MongoClientSettings settings)
-        => await (await new MongoClient(settings).ListDatabaseNamesAsync().ConfigureAwait(false)).ToListAsync().ConfigureAwait(false);
+        => await(await new MongoClient(settings).ListDatabaseNamesAsync().ConfigureAwait(false)).ToListAsync()
+               .ConfigureAwait(false);
 
     /// <summary>
     /// Gets the IMongoDatabase for a given database name if it has been previously initialized.
@@ -172,7 +163,7 @@ public partial class DB
     public static DocumentTypeConfiguration? TypeConfiguration<TEntity>() where TEntity : IDocumentEntity {
         return Cache<TEntity>.TypeConfiguration;
     }
-    
+
     /*public static DocumentTypeConfiguration? TypeConfiguration<TEntity>() where TEntity : IEmbeddedEntity {
         return Cache<TEntity>.TypeConfiguration;
     }*/
@@ -182,29 +173,31 @@ public partial class DB
     /// </summary>
     /// <param name="dbName">The name of the database to retrieve</param>
     /// <param name="settings">The host we want the instance from</param>
-    public static DB Instance(string? dbName = null, MongoClientSettings? settings = null)
-    {
-        if (settings == null)
-        {
+    public static DB Instance(string? dbName = null, MongoClientSettings? settings = null) {
+        if (settings == null) {
             if (_clients.Count == 0)
-                throw new InvalidOperationException("No DB instance has been initialized yet with the given settings. Please call DB.InitAsync() first.");
+                throw new InvalidOperationException(
+                    "No DB instance has been initialized yet with the given settings. Please call DB.InitAsync() first.");
 
             settings = _defaultClientSettings;
         }
 
         if (!_clients.TryGetValue(settings, out var client) || !_clientInstances.TryGetValue(client, out var instances))
-            throw new InvalidOperationException("No DB instance has been initialized yet with the given settings. Please call DB.InitAsync() first.");
+            throw new InvalidOperationException(
+                "No DB instance has been initialized yet with the given settings. Please call DB.InitAsync() first.");
 
-        if (string.IsNullOrEmpty(dbName))
-        {
+        if (string.IsNullOrEmpty(dbName)) {
             return instances.Count == 0
-                       ? throw new InvalidOperationException("No DB instance has been initialized yet. Please call DB.InitAsync() first.")
+                       ? throw new InvalidOperationException(
+                             "No DB instance has been initialized yet. Please call DB.InitAsync() first.")
                        : _defaultInstance;
         }
 
         instances.TryGetValue(dbName, out var db);
 
-        return db ?? throw new InvalidOperationException($"No DB instance with the dbName '{dbName}' has been initialized yet. Please call DB.InitAsync() first.");
+        return db ??
+               throw new InvalidOperationException(
+                   $"No DB instance with the dbName '{dbName}' has been initialized yet. Please call DB.InitAsync() first.");
     }
 
     /// <summary>
@@ -220,8 +213,7 @@ public partial class DB
     /// </summary>
     /// <param name="name">The name of the database to mark as the new default database</param>
     /// <param name="settings">The MongoClient we want to get the database from</param>
-    public static void ChangeDefaultDatabase(string name, MongoClientSettings? settings = null)
-    {
+    public static void ChangeDefaultDatabase(string name, MongoClientSettings? settings = null) {
         if (string.IsNullOrEmpty(name))
             throw new ArgumentNullException(nameof(name), "Database name cannot be null or empty");
 
@@ -261,8 +253,7 @@ public partial class DB
     /// </summary>
     /// <typeparam name="T">Any class that implements IEntity</typeparam>
     /// <param name="ID">The ID to set on the returned instance</param>
-    public static T Entity<T>(object ID) where T : IEntity, new()
-    {
+    public static T Entity<T>(object ID) where T : IEntity, new() {
         var newT = new T();
         newT.SetId(ID);
 
@@ -292,7 +283,7 @@ public partial class DB
     /// <typeparam name="T">Any entity that implements IEntity</typeparam>
     protected virtual Action<UpdateBase<T>>? OnBeforeUpdate<T>() where T : IEntity
         => null;
-    
+
     /// <summary>
     /// Internal logger for DB
     /// </summary>
@@ -309,8 +300,8 @@ public partial class DB
         }
     }
 
-    private static void Log(LogLevel logLevel, 
-                            [StructuredMessageTemplate] string message, 
+    private static void Log(LogLevel logLevel,
+                            [StructuredMessageTemplate] string message,
                             params object[] args) {
         if (LoggingEnabled) {
             _logger.Log(logLevel: logLevel, message: message, args: args);

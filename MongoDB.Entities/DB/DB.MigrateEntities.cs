@@ -611,22 +611,19 @@ public partial class DB {
                             }
                             emDoc = emDoc[embeddedVar.EmbeddedObjectPropertyPath[i]].AsBsonDocument;
                         }
-
-                        expression.Parameters[embeddedVar.VariableName] = embeddedVar.DataType switch {
+                        expression.Parameters[embeddedVar.VariableName]=emDoc.ToDataType(embeddedVar.DataType,embeddedVar.EmbeddedProperty);
+                        /*expression.Parameters[embeddedVar.VariableName] = embeddedVar.DataType switch {
                             DataType.NUMBER => emDoc[embeddedVar.EmbeddedProperty].AsDouble,
                             DataType.STRING => emDoc[embeddedVar.EmbeddedProperty].AsString ?? "",
                             DataType.BOOLEAN => emDoc[embeddedVar.EmbeddedProperty].AsBoolean,
                             DataType.DATE => DateTime.Parse(emDoc[embeddedVar.EmbeddedProperty].AsString),
                             DataType.LIST_NUMBER => emDoc[embeddedVar.EmbeddedProperty].AsBsonArray
                                 .Select(e => e.AsDouble),
-                            DataType.LIST_STRING => emDoc[embeddedVar.EmbeddedProperty].AsBsonArray
-                                .Select(e => e.AsString),
-                            DataType.LIST_BOOLEAN => emDoc[embeddedVar.EmbeddedProperty].AsBsonArray
-                                .Select(e => e.AsBoolean),
-                            DataType.LIST_DATE => emDoc[embeddedVar.EmbeddedProperty].AsBsonArray
-                                .Select(e => DateTime.Parse(e.AsString)),
+                            DataType.LIST_STRING => emDoc[embeddedVar.EmbeddedProperty].AsBsonArray.Select(e => e.AsString),
+                            DataType.LIST_BOOLEAN => emDoc[embeddedVar.EmbeddedProperty].AsBsonArray.Select(e => e.AsBoolean),
+                            DataType.LIST_DATE => emDoc[embeddedVar.EmbeddedProperty].AsBsonArray.Select(e => DateTime.Parse(e.AsString)),
                             _ => emDoc[embeddedVar.EmbeddedProperty].AsDouble
-                        };
+                        };*/
 
                         break;
                     }
@@ -760,7 +757,7 @@ public partial class DB {
                         break;
                     }
                     default: {
-                        expression.Parameters[pVar.Property]=entity.ToDataType(pVar.DataType,pVar.Property);
+                        expression.Parameters[pVar.VariableName]=entity.ToDataType(pVar.DataType,pVar.Property);
                         /*if (entity.Contains(pVar.Property)) {
                             expression.Parameters[pVar.VariableName] = pVar.DataType switch {
                                 DataType.NUMBER => entity[pVar.Property].AsDouble,

@@ -66,8 +66,8 @@ public class QuickTest:DocumentEntity,ICreatedOn,IModifiedOn,IHasEmbedded {
     }
 
     public async Task ApplyEmbeddedMigrations() {
-        /*await this.FinalMeasurements.ApplyEmbedded(typeof(QuickTest));
-        await this.InitialMeasurements.ApplyEmbedded(typeof(QuickTest)); */  
+        await this.FinalMeasurements.ApplyEmbedded(typeof(QuickTest),DB.Default);
+        await this.InitialMeasurements.ApplyEmbedded(typeof(QuickTest),DB.Default);   
     }
 }
 

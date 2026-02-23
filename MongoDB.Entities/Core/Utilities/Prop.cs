@@ -40,8 +40,26 @@ public static class Prop
         if (expression.Body.NodeType == ExpressionType.Parameter)
             throw new ArgumentException("Cannot generate property path from lambda parameter!");
     }
+    
+    static void ThrowIfInvalid<T>(Expression<Func<T, IEmbeddedEntity?>> expression)
+    {
+        if (expression == null)
+            throw new ArgumentNullException(nameof(expression), "The supplied expression is null!");
+
+        if (expression.Body.NodeType == ExpressionType.Parameter)
+            throw new ArgumentException("Cannot generate property path from lambda parameter!");
+    }
 
     static string GetPath<T>(Expression<Func<T, object?>> expression)
+    {
+        ThrowIfInvalid(expression);
+
+        return _rxTwo.Replace(
+            _rxOne.Match(expression.ToString()).Value[1..],
+            m => "[" + m.Groups[1].Value + "]");
+    }
+    
+    static string GetPath<T>(Expression<Func<T, IEmbeddedEntity?>> expression)
     {
         ThrowIfInvalid(expression);
 
@@ -85,6 +103,14 @@ public static class Prop
     /// </summary>
     /// <param name="expression">x => x.SomeList[0].SomeProp</param>
     public static string Path<T>(Expression<Func<T, object?>> expression)
+        => _rxThree.Replace(GetPath(expression), "");
+    
+    /// <summary>
+    /// Override that takes in IEmbeddedProperty. Returns the full dotted path for a given expression.
+    /// <para>EX: Authors[0].Books[0].Title > Authors.Books.Title</para>
+    /// </summary>
+    /// <param name="expression">x => x.SomeList[0].SomeProp</param>
+    public static string Path<T>(Expression<Func<T, IEmbeddedEntity?>> expression)
         => _rxThree.Replace(GetPath(expression), "");
 
     /// <summary>

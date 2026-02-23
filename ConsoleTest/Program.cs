@@ -1,119 +1,29 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
-using System.Linq.Dynamic.Core;
-using System.Linq.Expressions;
 using System.Text.Json;
-using MongoDB.Driver.Linq.Linq3Implementation;
 using ConsoleTesting;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using MongoDB.Driver.Linq;
 using MongoDB.Entities;
 using NCalcExtensions;
 
 //Console.WriteLine("Hello, World!");
 //RegisterEmbedded<Data>(e => e.EmbeddedList);
-//await TestDatabaseMigrations();
 
-/*var db = await DB.InitAsync(
-             "mongo-dev-test",
-             new MongoClientSettings() {
-                 Server = new("172.20.3.41", 27017),
-             });*/
+/*var db = await DB.InitAsync("mongo-dev-test", new() { Server = new("172.20.3.41", 27017), });
+
+await GenerateEpiData("B03", "A06", "A07");
+Console.WriteLine("EPI Data Generated");*/
+await TestDatabaseMigrations();
+
 /*await BuildMigrationRefCollectionProp();
 await db.ApplyMigrations();*/
 /*await GenerateEpiData();
 await DynamicQueryTesting();*/
 
-EmbeddedTypeConfigBuilder builder = new EmbeddedTypeConfigBuilder();
-builder.HasEmbeddedPropertyConfig<EpiRun>(b => b.ForProperty(e => e.TestEmbeddedNotArray)
-                                                .HasField<ValueField, ValueFieldBuilder>(r => 
-                                                    r.FieldName("Test Embedded Not Array")
-                                                     .ValueInfo(0.00)
-                                                     .Type(DataType.NUMBER)));
-
-
-
-void TestingBuilders() {
-    var filter = FilterBuilder.CreateBuilder()
-                              .FieldName(nameof(QtMeasurement.Power))
-                              .Value(1100)
-                              .ComparisonOperator(ComparisonOperator.LessThanOrEqual)
-                              .LogicalOperator(LogicalOperator.And)
-                              .HasFilter(f => f.FieldName(nameof(QtMeasurement.Power))
-                                               .Value(500)
-                                               .ComparisonOperator(ComparisonOperator.GreaterThan)
-                                               .LogicalOperator(LogicalOperator.And)
-                                               .Build())
-                              .HasFilter(f => f.FieldName(nameof(QtMeasurement.Wavelength))
-                                               .Value(270)
-                                               .ComparisonOperator(ComparisonOperator.GreaterThanOrEqual)
-                                               .LogicalOperator(LogicalOperator.And)
-                                               .HasFilter(fs => fs.FieldName(nameof(QtMeasurement.Wavelength))
-                                                                  .Value(279)
-                                                                  .ComparisonOperator(
-                                                                      ComparisonOperator.LessThanOrEqual)
-                                                                  .LogicalOperator(LogicalOperator.Or)
-                                                                  .Build())
-                                               .Build())
-                              .Build();
-
-    /*var field = ObjectFieldBuilder.Create()
-                                  .FieldName("Qt Summary")
-                                  .Types(BsonType.Document, TypeCode.Object)
-                                  .HasField<ObjectField,ObjectFieldBuilder>(builder=>builder
-                                      .FieldName(nameof(QtMeasurement.Power))
-                                      .Types(BsonType.Double,TypeCode.Double)
-                                      .HasField<CalculatedField,CalculatedFieldBuilder>(builder=>builder
-                                          .FieldName("Avg. Initial Power")
-                                          .Types(BsonType.Double,TypeCode.Double)
-                                          .ValueInfo(0.00)
-                                          .WithExpression("avg([powers])")
-                                          .HasVariable<OwnedCollectionPropertyVariable,CollectionPropertyVarBuilder>(
-                                              vb=>vb.Property<QtMeasurement>(e=>e.Power)
-                                                    .DataType(DataType.LIST_NUMBER)
-                                                    .VariableName("powers")
-                                                    .CollectionProperty<QuickTest>(p=>p.InitialMeasurements).Build()))
-                                      .Build());*/
-
-    Console.WriteLine(filter.ToString());
-}
-
-async Task DynamicQueryTesting() {
-    /*var db = await DB.InitAsync(
-                 "mongo-dev-test",
-                 new MongoClientSettings() {
-                     Server = new("172.20.3.41", 27017),
-                 });*/
-    var collection = DB.Default.Collection("mongo-dev-test", "quick_tests").AsQueryable();
-    collection = collection.Where(e => e["WaferId"].AsString == "B01-0001-02");
-
-    var query = collection.Select(e => e["InitialMeasurements"]["Power"]);
-    var list = query.ToList();
-    var output = list.SelectMany(e => e.AsBsonArray).ToList();
-
-    output.ForEach(e => Console.WriteLine(e));
-    /*list.ForEach(e=>Console.WriteLine(e));
-    var output=list.Select(e=>e.AsBsonArray).ToList();
-    output.ForEach(e=>Console.WriteLine(e));*/
-    //Console.WriteLine(query.Select(e=>e.ToBsonDocument()).ToString());
-
-    /*var qtCollection=DB.Default.Collection<QuickTest>();
-    var result=qtCollection.AsQueryable().SelectMany(e => e.InitialMeasurements.Select(m=>m.Power));*/
-    //Console.WriteLine(query.Count());
-
-    /*var collection=DB.Default.Collection("mongo-dev-test","quick_tests").AsQueryable();
-    Prop
-    var count= collection.Where("e => e.InitialMeasurements.AsBsonArray.Average(m=>m.Power) >= 900").Count();
-    Console.WriteLine(count);*/
-    //DB.Default.Find<QuickTest>().Match(e => e.InitialMeasurements.Average(e=>e.Power) >= 900);
-}
-
 async Task TestDatabaseMigrations() {
-    var db = await DB.InitAsync(
-                 "mongo-dev-test",
-                 new MongoClientSettings() {
-                     Server = new("172.20.3.41", 27017),
-                 });
+    var db = await DB.InitAsync("mongo-dev-test", new() { Server = new("172.20.3.41", 27017), });
     await db.DropCollectionAsync<TypeConfiguration>();
     await db.DropCollectionAsync<DocumentMigration>();
     await db.DropCollectionAsync<EpiRun>();
@@ -121,7 +31,7 @@ async Task TestDatabaseMigrations() {
     await db.DropCollectionAsync<XrdData>();
 
     await CreateKeys();
-    await GenerateEpiData();
+    await GenerateEpiData("B01", "A02", "A03");
     await BuildMigration();
     await BuildEmbeddedMigration();
     await DB.Default.ApplyMigrations();
@@ -135,49 +45,6 @@ void TestNCalc() {
 }
 
 async Task BuildEmbeddedMigration() {
-    var migrationNumber = await DB.Default.Collection<DocumentMigration>()
-                                  .Find(_ => true)
-                                  .SortByDescending(e => e.MigrationNumber)
-                                  .Project(e => e.MigrationNumber)
-                                  .FirstOrDefaultAsync();
-    Console.WriteLine("Migration Number: " + migrationNumber);
-
-    MigrationBuilder builder = new MigrationBuilder();
-    var calcField = new CalculatedField() {
-        FieldName = "WPE",
-        BsonType = BsonType.Double,
-        TypeCode = TypeCode.Double,
-        DataType = DataType.NUMBER,
-        DefaultValue = 0.00,
-        Expression = "([power]/([volts]*[current]))*100",
-        Variables = [
-            new PropertyVariable() {
-                Property = nameof(QtMeasurement.Power),
-                VariableName = "power",
-                DataType = DataType.NUMBER
-            },
-            new PropertyVariable() {
-                Property = nameof(QtMeasurement.Current),
-                VariableName = "current",
-                DataType = DataType.NUMBER
-            },
-            new PropertyVariable() {
-                Property = nameof(QtMeasurement.Voltage),
-                VariableName = "voltage",
-                DataType = DataType.NUMBER
-            }
-        ]
-    };
-    builder.AddField(calcField);
-    /*EmbeddedTypeConfiguration? typeConfig =
-        await EmbeddedTypeConfiguration.CreateOnline<QuickTest, QtMeasurement>(
-            ["InitialMeasurements", "FinalMeasurements"],
-            true);*/
-    /*await DB.Default.ConfigureType<QuickTest>()
-      .RegisterEmbedded(e=>e.FinalMeasurements)
-      .RegisterEmbedded(e=>e.InitialMeasurements)
-      .RegisterAsync();*/
-
     var typeConfig = await DB.Default.CreateEmbeddedConfigOnline<QuickTest>(
                          typeof(QtMeasurement),
                          true,
@@ -189,17 +56,74 @@ async Task BuildEmbeddedMigration() {
         return;
     }
 
-    //await typeConfig.SaveAsync();
+    var migrationNumber = await DB.Default.Collection<DocumentMigration>()
+                                  .Find(_ => true)
+                                  .SortByDescending(e => e.MigrationNumber)
+                                  .Project(e => e.MigrationNumber)
+                                  .FirstOrDefaultAsync();
+    Console.WriteLine("Migration Number: " + migrationNumber);
+
+    var fieldBuilder = new CalculatedFieldBuilder();
+
+    var calcField = fieldBuilder.FieldName("WPE")
+                                .Expression("([power]/([voltage]*([current]/1000)))*100")
+                                .Type(DataType.NUMBER)
+                                .HasVariable<PropertyVariable, PropertyVarBuilder>(vb => vb
+                                    .Property<QtMeasurement>(e => e.Power)
+                                    .VariableName("power")
+                                    .DataType(DataType.NUMBER))
+                                .HasVariable<PropertyVariable, PropertyVarBuilder>(vb => vb
+                                    .Property<QtMeasurement>(e => e.Voltage)
+                                    .VariableName("voltage")
+                                    .DataType(DataType.NUMBER))
+                                .HasVariable<PropertyVariable, PropertyVarBuilder>(vb => vb
+                                    .Property<QtMeasurement>(e => e.Current)
+                                    .VariableName("current")
+                                    .DataType(DataType.NUMBER))
+                                .Build();
+    Console.WriteLine(JsonSerializer.Serialize(calcField, new JsonSerializerOptions() { WriteIndented = true }));
+    /*var calcField = new CalculatedField() {
+        FieldName = "WPE",
+        BsonType = DataType.NUMBER.ToBsonType(),
+        TypeCode = DataType.NUMBER.ToTypeCode(),
+        DataType = DataType.NUMBER,
+        DefaultValue = 0.00,
+        Expression = "([power]/([voltage]*[current]))*100",
+        Variables = [
+            new PropertyVariable() {
+                Property = nameof(QtMeasurement.Power),
+                VariableName = "power",
+                DataType = DataType.NUMBER,
+                BsonType = DataType.NUMBER.ToBsonType(),
+                TypeCode = DataType.NUMBER.ToTypeCode(),
+            },
+            new PropertyVariable() {
+                Property = nameof(QtMeasurement.Current),
+                VariableName = "current",
+                DataType = DataType.NUMBER,
+                BsonType = DataType.NUMBER.ToBsonType(),
+                TypeCode = DataType.NUMBER.ToTypeCode(),
+
+            },
+            new PropertyVariable() {
+                Property = nameof(QtMeasurement.Voltage),
+                VariableName = "voltage",
+                DataType = DataType.NUMBER,
+                BsonType = DataType.NUMBER.ToBsonType(),
+                TypeCode = DataType.NUMBER.ToTypeCode(),
+            }
+        ]
+    };*/
+
+    var migration = EmbeddedMigrationBuilder.CreateBuilder()
+                                            .HasParent<QuickTest>()
+                                            .WithMigrationNumber(++migrationNumber)
+                                            .WithTypeConfiguration(typeConfig)
+                                            .AddField(calcField)
+                                            .Build();
     await DB.Default.SaveAsync(typeConfig);
-    var migration = builder.Build(typeConfig, migrationNumber, nameof(QuickTest));
-
-    //await migration.SaveAsync();
     await DB.Default.SaveAsync(migration);
-
-    //migration.DocumentTypeConfiguration = documentTypeConfig.ToReference();
     await typeConfig.EmbeddedMigrations.AddAsync(migration);
-
-    //await migration.SaveAsync();
     await DB.Default.SaveAsync(migration);
     Console.WriteLine("Migration Created");
 }
@@ -240,6 +164,13 @@ async Task CreateKeys() {
 }
 
 async Task BuildMigration() {
+    var typeConfig = await DB.Default.CreateDocumentConfigOnline<QuickTest>();
+
+    if (typeConfig == null) {
+        Console.WriteLine("DocumentTypeConfiguration.CreateOnly failed!");
+
+        return;
+    }
     var migrationNumber = await DB.Default.Collection<DocumentMigration>()
                                   .Find(_ => true)
                                   .SortByDescending(e => e.MigrationNumber)
@@ -247,8 +178,9 @@ async Task BuildMigration() {
                                   .FirstOrDefaultAsync();
     Console.WriteLine("Migration Number: " + migrationNumber);
 
-    MigrationBuilder builder = new MigrationBuilder();
-    ObjectField objField = new ObjectField {
+    DocumentMigrationBuilder builder = new DocumentMigrationBuilder();
+
+    /*ObjectField objField = new ObjectField {
         FieldName = "Qt Summary",
         BsonType = BsonType.Document,
         TypeCode = TypeCode.Object,
@@ -264,6 +196,8 @@ async Task BuildMigration() {
                         VariableName = "powers",
                         CollectionProperty = "InitialMeasurements",
                         DataType = DataType.LIST_NUMBER,
+                        BsonType = DataType.LIST_NUMBER.ToBsonType(),
+                        TypeCode = DataType.LIST_NUMBER.ToTypeCode(),
                         Filter = new() {
                             FieldName = nameof(QtMeasurement.Power),
                             CompareOperator = ComparisonOperator.LessThanOrEqual,
@@ -306,6 +240,8 @@ async Task BuildMigration() {
                         VariableName = "wavelengths",
                         CollectionProperty = nameof(QuickTest.InitialMeasurements),
                         DataType = DataType.LIST_NUMBER,
+                        BsonType = DataType.LIST_NUMBER.ToBsonType(),
+                        TypeCode = DataType.LIST_NUMBER.ToTypeCode(),
                         Filter = new() {
                             FieldName = nameof(QtMeasurement.Power),
                             CompareOperator = ComparisonOperator.LessThanOrEqual,
@@ -338,21 +274,84 @@ async Task BuildMigration() {
                 ]
             }
         ]
-    };
-    builder.AddField(objField);
+    };*/
 
-    //DocumentTypeConfiguration? typeConfig = DocumentTypeConfiguration.CreateOnline<QuickTest>();
-    var typeConfig = await DB.Default.CreateDocumentConfigOnline<QuickTest>();
+    var filter = FilterBuilder.CreateBuilder()
+                              .FieldName(nameof(QtMeasurement.Power))
+                              .Value(1100)
+                              .ComparisonOperator(ComparisonOperator.LessThanOrEqual)
+                              .LogicalOperator(LogicalOperator.And)
+                              .HasFilter(f => f.FieldName<QtMeasurement>(e => e.Power)
+                                               .Value(500)
+                                               .ComparisonOperator(ComparisonOperator.GreaterThan)
+                                               .LogicalOperator(LogicalOperator.And))
+                              .HasFilter(f => f.FieldName<QtMeasurement>(e => e.Wavelength)
+                                               .Value(270)
+                                               .ComparisonOperator(ComparisonOperator.GreaterThanOrEqual)
+                                               .LogicalOperator(LogicalOperator.And)
+                                               .HasFilter(fs => fs.FieldName<QtMeasurement>(e => e.Wavelength)
+                                                                  .Value(279)
+                                                                  .ComparisonOperator(
+                                                                      ComparisonOperator.LessThanOrEqual)
+                                                                  .LogicalOperator(LogicalOperator.Or)))
+                              .Build();
 
-    if (typeConfig == null) {
-        Console.WriteLine("DocumentTypeConfiguration.CreateOnly failed!");
+    var objField = ObjectFieldBuilder.Create()
+                                     .FieldName("Qt Summary")
+                                     .Type(DataType.DOCUMENT)
+                                     .HasField<CalculatedField, CalculatedFieldBuilder>(c =>
+                                         c.FieldName("Avg. Initial Power")
+                                          .Type(DataType.NUMBER)
+                                          .Expression("avg([powers])")
+                                          .HasVariable<OwnedCollectionPropertyVariable,
+                                              OwnedCollectionPropertyVarBuilder>(o =>
+                                              o.Property<QtMeasurement>(e => e.Power)
+                                               .VariableName("powers")
+                                               .CollectionProperty<QuickTest>(e => e.InitialMeasurements)
+                                               .DataType(DataType.LIST_NUMBER)
+                                               .HasFilter(filter)))
+                                     .HasField<CalculatedField, CalculatedFieldBuilder>(c =>
+                                         c.FieldName("Avg. Initial Wl")
+                                          .Type(DataType.NUMBER)
+                                          .Expression("avg([wavelengths])")
+                                          .HasVariable<OwnedCollectionPropertyVariable,
+                                              OwnedCollectionPropertyVarBuilder>(o =>
+                                              o.Property<QtMeasurement>(e => e.Wavelength)
+                                               .VariableName("wavelengths")
+                                               .CollectionProperty<QuickTest>(e => e.InitialMeasurements)
+                                               .DataType(DataType.LIST_NUMBER)
+                                               .HasFilter(filter)))
+                                     .HasField<CalculatedField, CalculatedFieldBuilder>(c =>
+                                         c.FieldName("Avg. Final Power")
+                                          .Type(DataType.NUMBER)
+                                          .Expression("avg([powers])")
+                                          .HasVariable<OwnedCollectionPropertyVariable,
+                                              OwnedCollectionPropertyVarBuilder>(o =>
+                                              o.Property<QtMeasurement>(e => e.Power)
+                                               .VariableName("powers")
+                                               .CollectionProperty<QuickTest>(e => e.FinalMeasurements)
+                                               .DataType(DataType.LIST_NUMBER)
+                                               .HasFilter(filter)))
+                                     .HasField<CalculatedField, CalculatedFieldBuilder>(c =>
+                                         c.FieldName("Avg. Final Wl")
+                                          .Type(DataType.NUMBER)
+                                          .Expression("avg([wavelengths])")
+                                          .HasVariable<OwnedCollectionPropertyVariable,
+                                              OwnedCollectionPropertyVarBuilder>(o =>
+                                              o.Property<QtMeasurement>(e => e.Wavelength)
+                                               .VariableName("wavelengths")
+                                               .CollectionProperty<QuickTest>(e => e.FinalMeasurements)
+                                               .DataType(DataType.LIST_NUMBER)
+                                               .HasFilter(filter)))
+                                     .Build();
 
-        return;
-    }
+    var migration = builder.AddField(objField)
+                           .WithMigrationNumber(++migrationNumber)
+                           .WithTypeConfiguration(typeConfiguration: typeConfig)
+                           .Build();
 
     //await typeConfig.SaveAsync();
     await DB.Default.SaveAsync(typeConfig);
-    var migration = builder.Build(typeConfig, migrationNumber);
 
     //await migration.SaveAsync();
     await DB.Default.SaveAsync(migration);
@@ -367,6 +366,12 @@ async Task BuildMigration() {
 }
 
 async Task BuildMigrationRefCollectionProp() {
+    var typeConfig = await DB.Default.CreateDocumentConfigOnline<EpiRun>();
+
+    if (typeConfig == null) {
+        Console.WriteLine("DocumentTypeConfiguration.CreateOnline failed!");
+        return;
+    }
     var migrationNumber = await DB.Default.Collection<DocumentMigration>()
                                   .Find(_ => true)
                                   .SortByDescending(e => e.MigrationNumber)
@@ -374,7 +379,7 @@ async Task BuildMigrationRefCollectionProp() {
                                   .FirstOrDefaultAsync();
     Console.WriteLine("Migration Number: " + migrationNumber);
 
-    MigrationBuilder builder = new MigrationBuilder();
+    DocumentMigrationBuilder builder = new DocumentMigrationBuilder();
     ObjectField objField = new ObjectField {
         FieldName = "QT Summary",
         BsonType = BsonType.Document,
@@ -466,29 +471,14 @@ async Task BuildMigrationRefCollectionProp() {
             }
         ]
     };
-    builder.AddField(objField);
 
-    //DocumentTypeConfiguration? typeConfig = DocumentTypeConfiguration.CreateOnline<QuickTest>();
-    var typeConfig = await DB.Default.CreateDocumentConfigOnline<EpiRun>();
-
-    if (typeConfig == null) {
-        Console.WriteLine("DocumentTypeConfiguration.CreateOnly failed!");
-
-        return;
-    }
-
-    //await typeConfig.SaveAsync();
     await DB.Default.SaveAsync(typeConfig);
-    var migration = builder.Build(typeConfig, migrationNumber);
-
-    //await migration.SaveAsync();
+    var migration = builder.AddField(objField)
+                           .WithMigrationNumber(++migrationNumber)
+                           .WithTypeConfiguration(typeConfig)
+                           .Build();
     await DB.Default.SaveAsync(migration);
-
-    //migration.DocumentTypeConfiguration = documentTypeConfig.ToReference();
     await typeConfig.Migrations.AddAsync(migration);
-
-    //await migration.SaveAsync();
-    //await migration.SaveAsync();
     await DB.Default.SaveAsync(migration);
     Console.WriteLine("Migration Created");
 }
@@ -506,7 +496,6 @@ async Task BuilderMigration3() {
 
     if (typeConfig == null) {
         Console.WriteLine("DocumentTypeConfiguration not found");
-
         return;
     }
 
@@ -588,15 +577,20 @@ async Task BuilderMigration3() {
             }
         ]
     };
-    MigrationBuilder builder = new MigrationBuilder();
-    builder.AddField(objField);
-    var migration = builder.Build(typeConfig, migrationNumber);
+    DocumentMigrationBuilder builder = new DocumentMigrationBuilder();
+    var migration = builder.WithTypeConfiguration(typeConfig)
+                           .WithMigrationNumber(++migrationNumber)
+                           .AddField(objField)
+                           .Build();
+    await DB.Default.SaveAsync(migration);
+    await typeConfig.Migrations.AddAsync(migration);
+    await DB.Default.SaveAsync(migration);
 
     //await migration.SaveAsync();
-    Console.WriteLine("Migration saved");
+    Console.WriteLine("Migration Created");
 }
 
-async Task GenerateEpiData() {
+async Task GenerateEpiData(string bSys, string aSys1, string aSys2) {
     var rand = new Random();
     var now = DateTime.Now;
     List<EpiRun> epiRuns = [];
@@ -607,7 +601,7 @@ async Task GenerateEpiData() {
         for (int x = 1; x <= 10; x++) {
             EpiRun run = new EpiRun {
                 RunTypeId = (rand.NextDouble() > .5) ? "Prod" : "Rnd",
-                SystemId = "B01",
+                SystemId = bSys,
                 TechnicianId = (rand.NextDouble() > .5) ? "RJ" : "NC",
             };
             run.TimeStamp = now;
@@ -615,7 +609,7 @@ async Task GenerateEpiData() {
             string tempId = "";
             string ledId = "";
             string rlId = "";
-            GenerateWaferIds(i, "A03", "A02", "B01", ref tempId, ref rlId, ref ledId);
+            GenerateWaferIds(i, aSys1, aSys2, bSys, ref tempId, ref rlId, ref ledId);
 
             run.RunNumber = ledId.Substring(ledId.LastIndexOf('-') + 1);
 
@@ -679,6 +673,9 @@ async Task GenerateEpiData() {
         } //end pocked for loop
     }     //end run number for loop
 
+    /*await epiRuns.ApplyMigrations(DB.Default);
+    await quickTests.ApplyMigrations(DB.Default);
+    await xrdMeasurementData.ApplyMigrations(DB.Default);*/
     await DB.Default.SaveAsync(epiRuns);
     await DB.Default.SaveAsync(quickTests);
     await DB.Default.SaveAsync(xrdMeasurementData);

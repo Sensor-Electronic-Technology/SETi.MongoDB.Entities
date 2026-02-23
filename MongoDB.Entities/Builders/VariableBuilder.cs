@@ -6,8 +6,8 @@ namespace MongoDB.Entities;
 
 public abstract class VariableBuilderBase<TVar, TBuilder>
     where TVar : Variable, new() where TBuilder : VariableBuilderBase<TVar, TBuilder>, new() {
-    protected TBuilder Builder => (TBuilder)this;
-    protected TVar Variable => new TVar();
+    protected abstract TBuilder Builder { get; }
+    protected abstract TVar Variable { get; }
 
     public virtual TBuilder VariableName(string name) {
         this.Variable.VariableName = name;
@@ -16,8 +16,8 @@ public abstract class VariableBuilderBase<TVar, TBuilder>
 
     public virtual TBuilder DataType(DataType type) {
         this.Variable.DataType = type;
-        this.Variable.BsonType=type.ToBsonType();
-        this.Variable.TypeCode=type.ToTypeCode();
+        this.Variable.BsonType = type.ToBsonType();
+        this.Variable.TypeCode = type.ToTypeCode();
         return this.Builder;
     }
 
@@ -27,9 +27,9 @@ public abstract class VariableBuilderBase<TVar, TBuilder>
     public static TBuilder Create()
         => new();
 }
-public abstract class PropertyVarBuilderBase<TVariable,TBuilder> : VariableBuilderBase<TVariable, TBuilder>
-    where TBuilder : VariableBuilderBase<TVariable, TBuilder>, new() where TVariable : PropertyVariable, new(){
-    
+
+public abstract class PropertyVarBuilderBase<TVariable, TBuilder> : VariableBuilderBase<TVariable, TBuilder>
+    where TBuilder : VariableBuilderBase<TVariable, TBuilder>, new() where TVariable : PropertyVariable, new() {
     public virtual TBuilder Property<TEntity>(Expression<Func<TEntity, object?>> propertyExpression) {
         this.Variable.Property = Prop.Path(propertyExpression);
         return this.Builder;
@@ -40,20 +40,56 @@ public abstract class PropertyVarBuilderBase<TVariable,TBuilder> : VariableBuild
         return this.Builder;
     }
 }
-public class PropertyVarBuilder : PropertyVarBuilderBase<PropertyVariable, PropertyVarBuilder> { }
+
+public class PropertyVarBuilder : VariableBuilderBase<PropertyVariable, PropertyVarBuilder> {
+    protected override PropertyVarBuilder Builder => this;
+    protected override PropertyVariable Variable { get; } = new();
+
+    public virtual PropertyVarBuilder Property<TEntity>(Expression<Func<TEntity, object?>> propertyExpression) {
+        this.Variable.Property = Prop.Path(propertyExpression);
+        return this.Builder;
+    }
+
+    public virtual PropertyVarBuilder Property(string property) {
+        this.Variable.Property = property;
+        return this.Builder;
+    }
+}
+
 public class ValueVarBuilder : VariableBuilderBase<ValueVariable, ValueVarBuilder> {
+    protected override ValueVarBuilder Builder => this;
+    protected override ValueVariable Variable { get; } = new();
+
     public ValueVarBuilder Value(object value) {
         this.Variable.Value = value;
         return this.Builder;
     }
 }
-public class OwnedEmbeddedPropertyVarBuilder : PropertyVarBuilderBase<OwnedEmbeddedPropertyVariable, OwnedEmbeddedPropertyVarBuilder> {
+
+public class
+    OwnedEmbeddedPropertyVarBuilder : VariableBuilderBase<OwnedEmbeddedPropertyVariable,
+    OwnedEmbeddedPropertyVarBuilder> {
+    protected override OwnedEmbeddedPropertyVarBuilder Builder => this;
+    protected override OwnedEmbeddedPropertyVariable Variable { get; } = new();
+
+    public OwnedEmbeddedPropertyVarBuilder Property<TEntity>(
+        Expression<Func<TEntity, object?>> propertyExpression) {
+        this.Variable.Property = Prop.Path(propertyExpression);
+        return this.Builder;
+    }
+
+    public OwnedEmbeddedPropertyVarBuilder Property(string property) {
+        this.Variable.Property = property;
+        return this.Builder;
+    }
+
     public OwnedEmbeddedPropertyVarBuilder EmbeddedProperty(string embeddedProperty) {
         this.Variable.EmbeddedProperty = embeddedProperty;
         return this.Builder;
     }
-    
-    public OwnedEmbeddedPropertyVarBuilder EmbeddedProperty<TEntity>(Expression<Func<TEntity, object?>> propertyExpression) {
+
+    public OwnedEmbeddedPropertyVarBuilder EmbeddedProperty<TEntity>(
+        Expression<Func<TEntity, object?>> propertyExpression) {
         this.Variable.EmbeddedProperty = Prop.Path(propertyExpression);
         return this.Builder;
     }
@@ -65,45 +101,58 @@ public class OwnedEmbeddedPropertyVarBuilder : PropertyVarBuilderBase<OwnedEmbed
     /// <param name="propertyExpression"></param>
     /// <typeparam name="TEntity"></typeparam>
     /// <returns></returns>
-    public OwnedEmbeddedPropertyVarBuilder HasPropertyPath<TEntity>(Expression<Func<TEntity, object?>> propertyExpression) {
-        var path=Prop.Path(propertyExpression);
+    public OwnedEmbeddedPropertyVarBuilder HasPropertyPath<TEntity>(
+        Expression<Func<TEntity, object?>> propertyExpression) {
+        var path = Prop.Path(propertyExpression);
 
         if (path.Contains('.')) {
-            var parts=path.Split('.');
-            this.Variable.EmbeddedObjectPropertyPath=parts;
+            var parts = path.Split('.');
+            this.Variable.EmbeddedObjectPropertyPath = parts;
         } else {
-            this.Variable.EmbeddedObjectPropertyPath=[path];
+            this.Variable.EmbeddedObjectPropertyPath = [path];
         }
         return this.Builder;
     }
-    
+
     public OwnedEmbeddedPropertyVarBuilder HasPropertyPath(params string[] path) {
-        this.Variable.EmbeddedObjectPropertyPath=path;
+        this.Variable.EmbeddedObjectPropertyPath = path;
         return this.Builder;
     }
-    
 }
-public class OwnedCollectionPropertyVarBuilder 
-    : PropertyVarBuilderBase<OwnedCollectionPropertyVariable, OwnedCollectionPropertyVarBuilder> {
+
+public class OwnedCollectionPropertyVarBuilder :
+    VariableBuilderBase<OwnedCollectionPropertyVariable, OwnedCollectionPropertyVarBuilder> {
+    protected override OwnedCollectionPropertyVarBuilder Builder => this;
+    protected override OwnedCollectionPropertyVariable Variable { get; } = new();
     
+    public OwnedCollectionPropertyVarBuilder Property<TEntity>(Expression<Func<TEntity, object?>> propertyExpression) {
+        this.Variable.Property = Prop.Path(propertyExpression);
+        return this.Builder;
+    }
+
+    public OwnedCollectionPropertyVarBuilder Property(string property) {
+        this.Variable.Property = property;
+        return this.Builder;
+    }
     /// <summary>
     /// Property selection on a specific class.
     /// </summary>
     /// <param name="propertyExpression">property selection expression, property must be of type IEnumerable</param>
     /// <typeparam name="TEntity">The class containing the property</typeparam>
     /// <returns>CollectionPropertyVarBuilder</returns>
-    public OwnedCollectionPropertyVarBuilder CollectionProperty<TEntity>(Expression<Func<TEntity, object?>> propertyExpression) {
+    public OwnedCollectionPropertyVarBuilder CollectionProperty<TEntity>(
+        Expression<Func<TEntity, object?>> propertyExpression) {
         /*if(Prop.Property(propertyExpression).GetType().IsArray)*/
         this.Variable.CollectionProperty = Prop.Path(propertyExpression);
         return this.Builder;
     }
-    
+
     public OwnedCollectionPropertyVarBuilder CollectionProperty(string property) {
         this.Variable.CollectionProperty = property;
         return this.Builder;
     }
-    
-    public OwnedCollectionPropertyVarBuilder HasFilter(Func<IFilterBuilder,Filter> filterBuilder) {
+
+    public OwnedCollectionPropertyVarBuilder HasFilter(Func<IFilterBuilder, Filter> filterBuilder) {
         this.Variable.Filter = filterBuilder.Invoke(FilterBuilder.CreateBuilder());
         return this.Builder;
     }
@@ -113,33 +162,47 @@ public class OwnedCollectionPropertyVarBuilder
         return this.Builder;
     }
 }
-public class ExternPropertyValBuilder : PropertyVarBuilderBase<ExternalPropertyVariable, ExternPropertyValBuilder> {
+
+public class ExternPropertyValBuilder : VariableBuilderBase<ExternalPropertyVariable, ExternPropertyValBuilder> {
+    protected override ExternPropertyValBuilder Builder => this;
+    protected override ExternalPropertyVariable Variable { get; } = new();
+    
+    public ExternPropertyValBuilder Property<TEntity>(Expression<Func<TEntity, object?>> propertyExpression) {
+        this.Variable.Property = Prop.Path(propertyExpression);
+        return this.Builder;
+    }
+
+    public ExternPropertyValBuilder Property(string property) {
+        this.Variable.Property = property;
+        return this.Builder;
+    }
     
     public ExternPropertyValBuilder Database(string database) {
         this.Variable.DatabaseName = database;
         return this.Builder;
     }
-    
+
     public ExternPropertyValBuilder Collection(string collection) {
         this.Variable.CollectionName = collection;
         return this.Builder;
     }
-    
-    public ExternPropertyValBuilder FilterOnId<TSource, TExtern>(Expression<Func<TSource, object?>> idExpression, Expression<Func<TExtern, object?>> refIdExpression) {
+
+    public ExternPropertyValBuilder FilterOnId<TSource, TExtern>(Expression<Func<TSource, object?>> idExpression,
+                                                                 Expression<Func<TExtern, object?>> refIdExpression) {
         this.Variable.FilterOnEntityId = true;
         this.Variable.EntityIdProperty = Prop.Path(idExpression);
         this.Variable.RefEntityIdProperty = Prop.Path(refIdExpression);
         return this.Builder;
     }
-    
+
     public ExternPropertyValBuilder FilterOnId(string idProperty, string refIdProperty) {
         this.Variable.FilterOnEntityId = true;
         this.Variable.EntityIdProperty = idProperty;
         this.Variable.RefEntityIdProperty = refIdProperty;
         return this.Builder;
     }
-    
-    public ExternPropertyValBuilder HasFilter(Func<IFilterBuilder,Filter> filterBuilder) {
+
+    public ExternPropertyValBuilder HasFilter(Func<IFilterBuilder, Filter> filterBuilder) {
         this.Variable.Filter = filterBuilder.Invoke(FilterBuilder.CreateBuilder());
         return this.Builder;
     }
@@ -148,46 +211,60 @@ public class ExternPropertyValBuilder : PropertyVarBuilderBase<ExternalPropertyV
         this.Variable.Filter = filter;
         return this.Builder;
     }
-    
-    
 }
-public class ExternCollectionPropertyVarBuilder : PropertyVarBuilderBase<ExternalCollectionPropertyVariable, ExternCollectionPropertyVarBuilder> {
 
-    public ExternCollectionPropertyVarBuilder FilterOnId<TSource, TExtern>(Expression<Func<TSource, object?>> idExpression, Expression<Func<TExtern, object?>> refIdExpression) {
+public class ExternCollectionPropertyVarBuilder 
+        : VariableBuilderBase<ExternalCollectionPropertyVariable, ExternCollectionPropertyVarBuilder> {
+    protected override ExternCollectionPropertyVarBuilder Builder => this;
+    protected override ExternalCollectionPropertyVariable Variable { get; } = new();
+    
+    public ExternCollectionPropertyVarBuilder Property<TEntity>(Expression<Func<TEntity, object?>> propertyExpression) {
+        this.Variable.Property = Prop.Path(propertyExpression);
+        return this.Builder;
+    }
+
+    public ExternCollectionPropertyVarBuilder Property(string property) {
+        this.Variable.Property = property;
+        return this.Builder;
+    }
+    
+    public ExternCollectionPropertyVarBuilder FilterOnId<TSource, TExtern>(
+        Expression<Func<TSource, object?>> idExpression,
+        Expression<Func<TExtern, object?>> refIdExpression) {
         this.Variable.FilterOnEntityId = true;
         this.Variable.EntityIdProperty = Prop.Path(idExpression);
         this.Variable.RefEntityIdProperty = Prop.Path(refIdExpression);
         return this.Builder;
     }
-    
+
     public ExternCollectionPropertyVarBuilder FilterOnId(string idProperty, string refIdProperty) {
         this.Variable.FilterOnEntityId = true;
         this.Variable.EntityIdProperty = idProperty;
         this.Variable.RefEntityIdProperty = refIdProperty;
         return this.Builder;
     }
-    
+
     public ExternCollectionPropertyVarBuilder Database(string database) {
         this.Variable.DatabaseName = database;
         return this.Builder;
     }
-    
+
     public ExternCollectionPropertyVarBuilder Collection(string collection) {
         this.Variable.CollectionName = collection;
         return this.Builder;
     }
-    
+
     public ExternCollectionPropertyVarBuilder CollectionProperty<T>(Expression<Func<T, object?>> propertyExpression) {
         this.Variable.CollectionProperty = Prop.Path(propertyExpression);
         return this.Builder;
     }
-    
+
     public ExternCollectionPropertyVarBuilder CollectionProperty(string property) {
         this.Variable.CollectionProperty = property;
         return this.Builder;
     }
-    
-    public ExternCollectionPropertyVarBuilder HasFilter(Func<IFilterBuilder,Filter> filterBuilder) {
+
+    public ExternCollectionPropertyVarBuilder HasFilter(Func<IFilterBuilder, Filter> filterBuilder) {
         this.Variable.Filter = filterBuilder.Invoke(FilterBuilder.CreateBuilder());
         return this.Builder;
     }
@@ -196,8 +273,8 @@ public class ExternCollectionPropertyVarBuilder : PropertyVarBuilderBase<Externa
         this.Variable.Filter = filter;
         return this.Builder;
     }
-    
-    public ExternCollectionPropertyVarBuilder HasCollectionFilter(Func<IFilterBuilder,Filter> filterBuilder) {
+
+    public ExternCollectionPropertyVarBuilder HasCollectionFilter(Func<IFilterBuilder, Filter> filterBuilder) {
         this.Variable.SubFilter = filterBuilder.Invoke(FilterBuilder.CreateBuilder());
         return this.Builder;
     }

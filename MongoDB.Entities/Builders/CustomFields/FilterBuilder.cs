@@ -1,7 +1,10 @@
-﻿namespace MongoDB.Entities;
+﻿using System.Linq.Expressions;
+
+namespace MongoDB.Entities;
 
 public interface IFilterBuilder {
     ICanSetValue FieldName(string fieldName);
+    ICanSetValue FieldName<TEntity>(Expression<Func<TEntity, object?>> propertyExpression);
     bool Validate();
 }
 
@@ -19,7 +22,7 @@ public interface ICanSetLogicalOperator {
 
 
 public interface ICanAddFilters {
-    ICanBuildFilter HasFilter(Func<IFilterBuilder,Filter> filterBuilder);
+    ICanBuildFilter HasFilter(Func<IFilterBuilder,ICanBuildFilter> filterBuilder);
 }
 
 public interface ICanBuildFilter:ICanAddFilters {
@@ -41,6 +44,11 @@ public class FilterBuilder : IFilterBuilder,
 
     public ICanSetValue FieldName(string fieldName) {
         this._filter.FieldName = fieldName;
+        return this;
+    }
+
+    public ICanSetValue FieldName<TEntity>(Expression<Func<TEntity, object?>> propertyExpression) {
+        this._filter.FieldName = Prop.Path(propertyExpression);
         return this;
     }
 
@@ -67,8 +75,9 @@ public class FilterBuilder : IFilterBuilder,
         return this._filter;
     }
 
-    public ICanBuildFilter HasFilter(Func<IFilterBuilder,Filter> filterBuilder) {
-        this._filter.Filters.Add(filterBuilder.Invoke(CreateBuilder()));
+    public ICanBuildFilter HasFilter(Func<IFilterBuilder,ICanBuildFilter> filterBuilder) {
+        var builder = filterBuilder.Invoke(CreateBuilder());
+        this._filter.Filters.Add(builder.Build());
         return this;
     }
 }

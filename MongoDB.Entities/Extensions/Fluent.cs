@@ -3,15 +3,13 @@ using MongoDB.Driver;
 
 namespace MongoDB.Entities;
 
-public static partial class Extensions
-{
+public static partial class Extensions {
     /// <summary>
     /// Adds a distinct aggregation stage to a fluent pipeline.
     /// </summary>
     /// <param name="aggregate"></param>
     /// <typeparam name="T">Any class that implements IEntity</typeparam>
-    public static IAggregateFluent<T> Distinct<T>(this IAggregateFluent<T> aggregate) where T : IEntity
-    {
+    public static IAggregateFluent<T> Distinct<T>(this IAggregateFluent<T> aggregate) where T : IEntity {
         PipelineStageDefinition<T, T> groupStage =
             """
                {
@@ -42,7 +40,9 @@ public static partial class Extensions
     /// <param name="filter">f => f.Eq(x => x.Prop, Value) &amp; f.Gt(x => x.Prop, Value)</param>
     /// <param name="aggregate"></param>
     /// <typeparam name="T">Any class that implements IEntity</typeparam>
-    public static IAggregateFluent<T> Match<T>(this IAggregateFluent<T> aggregate, Func<FilterDefinitionBuilder<T>, FilterDefinition<T>> filter) where T : IEntity
+    public static IAggregateFluent<T> Match<T>(this IAggregateFluent<T> aggregate,
+                                               Func<FilterDefinitionBuilder<T>, FilterDefinition<T>> filter)
+        where T : IEntity
         => aggregate.Match(filter(Builders<T>.Filter));
 
     /// <summary>
@@ -51,8 +51,8 @@ public static partial class Extensions
     /// <param name="expression">{ $gt: ['$Property1', '$Property2'] }</param>
     /// <param name="aggregate"></param>
     /// <typeparam name="T">Any class that implements IEntity</typeparam>
-    public static IAggregateFluent<T> MatchExpression<T>(this IAggregateFluent<T> aggregate, string expression) where T : IEntity
-    {
+    public static IAggregateFluent<T> MatchExpression<T>(this IAggregateFluent<T> aggregate, string expression)
+        where T : IEntity {
         PipelineStageDefinition<T, T> stage = "{$match:{$expr:" + expression + "}}";
 
         return aggregate.AppendStage(stage);
