@@ -7,7 +7,7 @@ namespace MongoDB.Entities;
 /// <summary>
 /// Inherit this interface to use a custom ID with AdditionalData
 /// </summary>
-public interface IDocumentEntity:IEntity {
+public interface IDocumentEntity:IEntity,IModifiedOn,ICreatedOn {
     public BsonDocument? AdditionalData { get; set; }
     public DocumentVersion Version { get; set; }
 }

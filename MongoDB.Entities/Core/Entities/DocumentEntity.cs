@@ -19,9 +19,20 @@ public abstract class DocumentEntity : IDocumentEntity {
     public virtual object GenerateNewID()
         => ObjectId.GenerateNewId().ToString()!;
 
-    /// <inheritdoc />
+    // ReSharper disable once VirtualMemberNeverOverridden.Global
     public virtual bool HasDefaultID()
         => string.IsNullOrEmpty(ID);
+    /// <summary>
+    /// Stores the custom user defined data
+    /// </summary>
     public BsonDocument? AdditionalData { get; set; }
+    
+    /// <summary>
+    /// Version of the document. Migrations services use this to determine if
+    /// the latest migration has already been applied to the document.
+    /// </summary>
     public DocumentVersion Version { get; set; }
+    
+    public DateTime ModifiedOn { get; set; }
+    public DateTime CreatedOn { get; set; }
 }
