@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
@@ -11,6 +12,7 @@ using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Conventions;
 using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
+using NCalcExtensions.Extensions;
 
 namespace MongoDB.Entities;
 
@@ -219,6 +221,7 @@ public partial class DB {
 
         _defaultInstance = Instance(name, settings);
     }
+    
 
     /// <summary>
     /// Exposes the mongodb Filter Definition Builder for a given type.
@@ -259,6 +262,24 @@ public partial class DB {
 
         return newT;
     }
+
+    /// <summary>
+    /// Returns the JoinCollection by the parent propertt for a given Parent/Child Many relationship 
+    /// </summary>
+    /// <param name="parentProp">Parent property expression, type must be Many&lt;TChild, TParent&gt;</param>
+    /// <typeparam name="TParent">Parent of type IEntity</typeparam>
+    /// <typeparam name="TChild">Child of type IEntity</typeparam>
+    /// <returns></returns>
+    /// <exception cref="ArgumentException"></exception>
+    public IMongoCollection<JoinRecord> GetReferenceCollection<TParent, TChild>(
+        Expression<Func<TParent,Many<TChild,TParent>>> parentProp) where TParent : IEntity where TChild : IEntity {
+        if (!Cache<TParent>.RefCollectionNames.TryGetValue(Prop.Path(parentProp), out var collectionName)) {
+            throw new ArgumentException($"Unable to find reference collection for property '{Prop.Path(parentProp)}'");
+        }
+        return Cache<TParent>.ReferenceCollections[collectionName]; 
+    }
+    
+    
 
     /// <summary>
     /// Initializes the ASP.NET Core Dependency Injection provider.

@@ -5,8 +5,7 @@ using MongoDB.Entities;
 
 namespace ConsoleTesting;
 
-public class TemplateRun : IDocumentEntity, ICreatedOn, IModifiedOn {
-    
+public class TemplateRun : IDocumentEntity {
     [BsonId]
     public string WaferId { get; set; }
     
@@ -30,7 +29,7 @@ public class TestEmbeddedNotArray : IEmbeddedEntity {
 }
 
 [Collection("epi_runs")]
-public class EpiRun : DocumentEntity,ICreatedOn,IModifiedOn {
+public class EpiRun : DocumentEntity {
     public DateTime TimeStamp { get; set; }
     public string WaferId { get; set; }
     public string RunTypeId { get; set; }
@@ -43,23 +42,27 @@ public class EpiRun : DocumentEntity,ICreatedOn,IModifiedOn {
     public One<QuickTest> QuickTest { get; set; }
     public One<XrdData> XrdData { get; set; }
     
+    public Many<EpiWafer,EpiRun> EpiWafers { get; set; }
+    
     public EpiRun() {
         this.InitOneToMany(()=>EpiRunMonitoring);
+        this.InitOneToMany(()=>EpiWafers);
     }
-    public DateTime CreatedOn { get; set; }
-    public DateTime ModifiedOn { get; set; }
+
+}
+[Collection("epi_wafers")]
+public class EpiWafer : DocumentEntity {
+    public string WaferIdV { get; set; }
+    public One<EpiRun>? EpiRun { get; set; }
 }
 
 [Collection("quick_tests")]
-public class QuickTest:DocumentEntity,ICreatedOn,IModifiedOn,IHasEmbedded {
+public class QuickTest:DocumentEntity,IHasEmbedded {
     public string WaferId { get; set; }
     public DateTime TimeStamp { get; set; }
     public One<EpiRun> EpiRun { get; set; }
     public List<QtMeasurement> InitialMeasurements { get; set; } = [];
     public List<QtMeasurement> FinalMeasurements { get; set; } = [];
-    
-    public DateTime CreatedOn { get; set; }
-    public DateTime ModifiedOn { get; set; }
     public void UpdateEmbedded(IDocumentEntity entity) {
         /*this.FinalMeasurements=((QuickTest)entity).FinalMeasurements;
         this.InitialMeasurements=((QuickTest)entity).InitialMeasurements;*/
@@ -72,13 +75,10 @@ public class QuickTest:DocumentEntity,ICreatedOn,IModifiedOn,IHasEmbedded {
 }
 
 [Collection("xrd_data")]
-public class XrdData : DocumentEntity,ICreatedOn,IModifiedOn {
+public class XrdData : DocumentEntity {
     public One<EpiRun> EpiRun { get; set; }
     public string WaferId { get; set; }
     public ICollection<XrdMeasurement> XrdMeasurements { get; set; }
-    
-    public DateTime CreatedOn { get; set; }
-    public DateTime ModifiedOn { get; set; }
 }
 
 public class QtMeasurement:IEmbeddedEntity {
@@ -112,11 +112,9 @@ public class XrdMeasurement:IEmbeddedEntity {
 }
 
 [Collection("run_monitoring")]
-public class Monitoring:DocumentEntity,ICreatedOn,IModifiedOn {
+public class Monitoring:DocumentEntity {
     public One<EpiRun> EpiRun { get; set; }
     public string WaferId { get; set; }
     public double Weight1 { get; set; }
     public double Temperature { get; set; }
-    public DateTime CreatedOn { get; set; }
-    public DateTime ModifiedOn { get; set; }
 }

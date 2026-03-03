@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using MongoDB.Driver.Linq;
 using MongoDB.Entities.Tests.Models;
+using MongoDB.Entities.Tests.Models.Runs;
 
 namespace MongoDB.Entities.Tests;
 
@@ -463,4 +465,29 @@ public class RelationshipsEntity
         Assert.AreEqual(b2.Title, a2Books.Last().Title);
         Assert.AreEqual(0, await a1.Books.ChildrenCountAsync());
     }
+
+    /*[TestMethod]
+    public async Task one_to_many_test_bulk_write() {
+       List<RunCategory> categories = new List<RunCategory> {
+           new() {ID=ObjectId.GenerateNewId().ToString(), Name = "Category A" },
+           new() {ID=ObjectId.GenerateNewId().ToString(), Name = "Category B" },
+           new() { ID=ObjectId.GenerateNewId().ToString(),Name = "Category C" }
+       };
+       
+       
+       
+       List<Run> runs = new List<Run> {
+           new() { ID = ObjectId.GenerateNewId().ToString(), RunNumber = "G01-0001" },
+           new() { ID = ObjectId.GenerateNewId().ToString(), RunNumber = "G01-0002" },
+           new() { ID = ObjectId.GenerateNewId().ToString(), RunNumber = "G01-0003" }
+       };
+       
+       categories[0].Runs.BulkAddModel()
+
+       for (int i = 0; i < 10; i++) {
+           
+       }
+        
+        
+    }*/
 }

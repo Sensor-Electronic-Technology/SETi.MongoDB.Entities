@@ -19,6 +19,15 @@ public sealed partial class Many<TChild, TParent> where TChild : IEntity where T
         => AddAsync(child.GetId(), session, cancellation);
 
     /// <summary>
+    /// Creates a bulk write model for adding multiple child references in a single bulk operation.
+    /// <para>WARNING: Make sure to set ID or save the parent and child Entities before calling this method.</para>
+    /// </summary>
+    /// <param name="children">The child Entities to add</param>
+    /// <param name="cancellation">An optional cancellation token</param>
+    public List<WriteModel<JoinRecord>> BulkAddModel(IEnumerable<TChild> children)
+        => CreateBulkJoinModel(children.Select(Cache<TChild>.IdSelector));
+    
+    /// <summary>
     /// Adds multiple child references in a single bulk operation
     /// <para>WARNING: Make sure to save the parent and child Entities before calling this method.</para>
     /// </summary>
@@ -71,5 +80,36 @@ public sealed partial class Many<TChild, TParent> where TChild : IEntity where T
         return session == null
                    ? JoinCollection.BulkWriteAsync(models, _unOrdBlkOpts, cancellation)
                    : JoinCollection.BulkWriteAsync(session, models, _unOrdBlkOpts, cancellation);
+    }
+    
+    /// <summary>
+    /// Creates a bulk write model for adding multiple child references in a single bulk operation.
+    /// <para>WARNING: Make sure to generate ID or save the parent and child Entities before calling this method.</para>
+    /// </summary>
+    /// <param name="childIDs">The IDs of the child Entities to add.</param>
+    /// <param name="cancellation">An optional cancellation token</param>
+    public List<WriteModel<JoinRecord>> CreateBulkJoinModel(IEnumerable<object?> childIDs) {
+        _parent.ThrowIfUnsaved();
+
+        var models = new List<WriteModel<JoinRecord>>(childIDs.Count());
+
+        foreach (var cid in childIDs)
+        {
+            cid.ThrowIfUnsaved();
+            var parentID = _isInverse ? cid : _parent.GetId();
+            var childID = _isInverse ? _parent.GetId() : cid;
+
+            var filter = Builders<JoinRecord>.Filter.Where(
+                j => j.ParentID == parentID &&
+                     j.ChildID == childID);
+
+            var update = Builders<JoinRecord>.Update
+                                             .Set(j => j.ParentID, parentID)
+                                             .Set(j => j.ChildID, childID);
+
+            models.Add(new UpdateOneModel<JoinRecord>(filter, update) { IsUpsert = true });
+        }
+
+        return models;
     }
 }

@@ -36,6 +36,8 @@ static class Cache<T> where T : IEntity
     static ProjectionDefinition<T>? _requiredPropsProjection;
 
     internal static ConcurrentDictionary<string, IMongoCollection<JoinRecord>> ReferenceCollections { get; } = new();
+    /*internal static ConcurrentDictionary<string, IMongoCollection<JoinRecord>> JoinCollectionsPropertyName { get; } = new();*/
+    internal static ConcurrentDictionary<string,string> RefCollectionNames { get; } = new();
 
     static Cache()
     {
@@ -172,6 +174,19 @@ static class Cache<T> where T : IEntity
         return BsonClassMap.LookupClassMap(type);
     }
 
-    internal static bool AddReferenceCollection(string name, IMongoCollection<JoinRecord> collection)
-        => ReferenceCollections.TryAdd(name, collection);
+    internal static bool AddReferenceCollection(string name,string property, IMongoCollection<JoinRecord> collection) {
+        var nameSuccess=RefCollectionNames.TryAdd(name,property);
+        var collectionSuccess=ReferenceCollections.TryAdd(property,collection);
+        if(nameSuccess && collectionSuccess)
+            return true;
+
+        if (!nameSuccess) RefCollectionNames.TryRemove(name, out _);
+        
+        if (!collectionSuccess) ReferenceCollections.TryRemove(property, out _);
+        
+        return false;
+    }
+    
+    /*internal static bool AddJoinCollectionPropertyName(string property, IMongoCollection<JoinRecord> collection)
+        => JoinCollectionsPropertyName.TryAdd(property, collection);*/
 }

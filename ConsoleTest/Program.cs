@@ -15,7 +15,22 @@ using NCalcExtensions;
 
 await GenerateEpiData("B03", "A06", "A07");
 Console.WriteLine("EPI Data Generated");*/
-await TestDatabaseMigrations();
+//await TestDatabaseMigrations();
+var db = await DB.InitAsync("mongo-dev-test", new() { Server = new("172.20.3.41", 27017), });
+
+var runs=await db.Find<EpiRun>().ExecuteAsync();
+
+var waferIds = runs.SelectMany(e => e.EpiWafers);
+
+Console.WriteLine(string.Join(',',waferIds.Select(e=>e.WaferIdV)));
+
+/*await db.DropCollectionAsync<TypeConfiguration>();
+await db.DropCollectionAsync<DocumentMigration>();
+await db.DropCollectionAsync<EpiRun>();
+await db.DropCollectionAsync<EpiWafer>();
+await db.DropCollectionAsync<QuickTest>();
+await db.DropCollectionAsync<XrdData>();
+await GenerateEpiWaferData("B01");*/
 
 /*await BuildMigrationRefCollectionProp();
 await db.ApplyMigrations();*/
@@ -590,6 +605,74 @@ async Task BuilderMigration3() {
     Console.WriteLine("Migration Created");
 }
 
+async Task GenerateEpiWaferData(string bSys) {
+    var rand = new Random();
+    var now = DateTime.Now;
+    List<EpiRun> epiRuns = [];
+    List<WriteModel<JoinRecord>> joinBulkAdd = [];
+    List<WriteModel<EpiRun>> runBulkAdd = [];
+    List<WriteModel<EpiWafer>> waferBulkAdd = [];
+    
+    for (int i = 1; i <= 5; i++) {
+        EpiRun run = new EpiRun {
+            ID=ObjectId.GenerateNewId().ToString(),
+            RunTypeId = (rand.NextDouble() > .5) ? "Prod" : "Rnd",
+            SystemId = bSys,
+            TechnicianId = (rand.NextDouble() > .5) ? "RJ" : "NC",
+        };
+        run.TimeStamp = now;
+        string ledId = "";
+        
+        if (i / 1000 >= 1) {
+            ledId += $"-{i}";
+        } else if (i / 100 >= 1) {
+            ledId += $"-0{i}";
+        } else if (i / 10 >= 1) {
+            ledId += $"-00{i}";
+        } else {
+            ledId += $"-000{i}";
+        }
+        run.RunNumber = ledId.Substring(ledId.LastIndexOf('-') + 1);
+        run.WaferId = ledId;
+        List<EpiWafer> epiWafers = [];
+        for (int x = 1; x <= 10; x++) {
+           
+            string ledId_P = ledId;
+
+            if (x / 10 >= 1) {
+                ledId_P += $"-{x}";
+
+            } else {
+                ledId_P += $"-0{x}";
+            }
+            var wafer = new EpiWafer() {
+                ID = ObjectId.GenerateNewId().ToString(),
+                WaferIdV = ledId_P,
+                EpiRun = new One<EpiRun>(run.ID),
+            };
+            waferBulkAdd.Add(new InsertOneModel<EpiWafer>(wafer));
+            epiWafers.Add(wafer);
+        } //end pocked for loop
+        joinBulkAdd.AddRange(run.EpiWafers.BulkAddModel(epiWafers));
+        epiRuns.Add(run);
+        runBulkAdd.Add(new InsertOneModel<EpiRun>(run));
+        
+        
+    }     //end run number for loop
+    // EpiRun temp = new();
+    
+    await DB.Default.Collection<EpiRun>().BulkWriteAsync(runBulkAdd);
+    await DB.Default.Collection<EpiWafer>().BulkWriteAsync(waferBulkAdd);
+    var refCollection=DB.Default.GetReferenceCollection<EpiRun,EpiWafer>(e=>e.EpiWafers);
+    await refCollection.BulkWriteAsync(joinBulkAdd);
+    //await temp.EpiWafers.JoinCollection.BulkWriteAsync(joinBulkAdd);
+    //await DB.Default.Database().GetCollection<JoinRecord>("").BulkWriteAsync(joinBulkAdd);
+    
+    /*await DB.Default.SaveAsync(epiRuns);*/
+
+    Console.WriteLine("Check Database");
+}
+
 async Task GenerateEpiData(string bSys, string aSys1, string aSys2) {
     var rand = new Random();
     var now = DateTime.Now;
@@ -676,6 +759,7 @@ async Task GenerateEpiData(string bSys, string aSys1, string aSys2) {
     /*await epiRuns.ApplyMigrations(DB.Default);
     await quickTests.ApplyMigrations(DB.Default);
     await xrdMeasurementData.ApplyMigrations(DB.Default);*/
+
     await DB.Default.SaveAsync(epiRuns);
     await DB.Default.SaveAsync(quickTests);
     await DB.Default.SaveAsync(xrdMeasurementData);

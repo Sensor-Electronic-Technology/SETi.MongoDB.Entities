@@ -16,6 +16,7 @@ public abstract class ManyBase
     //shared state for all Many<T> instances
     internal static readonly ConcurrentBag<string> IndexedCollections = [];
     internal static readonly string PropTypeName = typeof(Many<Entity, Entity>).Name;
+   // internal static readonly 
 }
 
 /// <summary>
@@ -87,7 +88,7 @@ public sealed partial class Many<TChild, TParent> : ManyBase where TChild : IEnt
         var collectionName = $"[{_db.CollectionName<TParent>()}~{_db.CollectionName<TChild>()}({property})]";
         JoinCollection = _db.GetRefCollection(collectionName);
         CreateIndexesAsync(JoinCollection);
-        Cache<TParent>.AddReferenceCollection(collectionName, JoinCollection);
+        Cache<TParent>.AddReferenceCollection(collectionName,property, JoinCollection);
     }
 
     /// <summary>
@@ -120,7 +121,7 @@ public sealed partial class Many<TChild, TParent> : ManyBase where TChild : IEnt
         JoinCollection = _db.GetRefCollection(collectionName);
 
         CreateIndexesAsync(JoinCollection);
-        Cache<TParent>.AddReferenceCollection(collectionName, JoinCollection);
+        Cache<TParent>.AddReferenceCollection(collectionName,propertyParent, JoinCollection);
     }
 
     /// <summary>
