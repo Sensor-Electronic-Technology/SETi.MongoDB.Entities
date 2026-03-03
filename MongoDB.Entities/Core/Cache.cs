@@ -175,8 +175,8 @@ static class Cache<T> where T : IEntity
     }
 
     internal static bool AddReferenceCollection(string name,string property, IMongoCollection<JoinRecord> collection) {
-        var nameSuccess=RefCollectionNames.TryAdd(name,property);
-        var collectionSuccess=ReferenceCollections.TryAdd(property,collection);
+        var nameSuccess=RefCollectionNames.TryAdd(property,name);
+        var collectionSuccess=ReferenceCollections.TryAdd(name,collection);
         if(nameSuccess && collectionSuccess)
             return true;
 

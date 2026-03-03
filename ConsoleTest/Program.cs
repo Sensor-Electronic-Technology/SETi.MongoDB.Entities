@@ -18,19 +18,19 @@ Console.WriteLine("EPI Data Generated");*/
 //await TestDatabaseMigrations();
 var db = await DB.InitAsync("mongo-dev-test", new() { Server = new("172.20.3.41", 27017), });
 
-var runs=await db.Find<EpiRun>().ExecuteAsync();
+/*var runs=await db.Find<EpiRun>().ExecuteAsync();
 
 var waferIds = runs.SelectMany(e => e.EpiWafers);
 
-Console.WriteLine(string.Join(',',waferIds.Select(e=>e.WaferIdV)));
+Console.WriteLine(string.Join(',',waferIds.Select(e=>e.WaferIdV)));*/
 
-/*await db.DropCollectionAsync<TypeConfiguration>();
+await db.DropCollectionAsync<TypeConfiguration>();
 await db.DropCollectionAsync<DocumentMigration>();
 await db.DropCollectionAsync<EpiRun>();
 await db.DropCollectionAsync<EpiWafer>();
 await db.DropCollectionAsync<QuickTest>();
 await db.DropCollectionAsync<XrdData>();
-await GenerateEpiWaferData("B01");*/
+await GenerateEpiWaferData("B01");
 
 /*await BuildMigrationRefCollectionProp();
 await db.ApplyMigrations();*/
