@@ -20,6 +20,7 @@ public class Transaction : DB, IDisposable
     {
         SessionHandle = Database().Client.StartSession(sessionOpts);
         SessionHandle.StartTransaction(trnsOpts);
+        
     }
 
     /// <summary>

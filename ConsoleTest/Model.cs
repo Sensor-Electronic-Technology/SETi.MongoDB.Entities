@@ -5,6 +5,70 @@ using MongoDB.Entities;
 
 namespace ConsoleTesting;
 
+
+public class Item:Entity {
+    public string Name { get; set; }
+    public int Value { get; set; }
+}
+
+public class Run:IDocumentEntity {
+    [BsonId]
+    public string WaferRunId { get; set; }
+
+    public Many<RunItem, Run> Items { get; set; }
+    public object GenerateNewID()=>string.Empty;
+    public DateTime ModifiedOn { get; set; }
+    public DateTime CreatedOn { get; set; }
+    public BsonDocument? AdditionalData { get; set; }
+    public DocumentVersion Version { get; set; }
+
+    public Run() {
+        this.InitOneToMany(()=>Items);
+    }
+}
+
+public class RunItem:IDocumentEntity {
+    [BsonId]
+    public string WaferId { get; set; }
+    public One<Run>? Run { get; set; }
+    public object GenerateNewID()=>string.Empty;
+    public DateTime ModifiedOn { get; set; }
+    public DateTime CreatedOn { get; set; }
+    public BsonDocument? AdditionalData { get; set; }
+    public DocumentVersion Version { get; set; }
+}
+
+public class RunV2:IDocumentEntity {
+    [BsonId]
+    public string WaferRunId { get; set; }
+
+    public Many<RunItemV2, RunV2> Items { get; set; }
+    public object GenerateNewID()=>string.Empty;
+    public DateTime ModifiedOn { get; set; }
+    public DateTime CreatedOn { get; set; }
+    public BsonDocument? AdditionalData { get; set; }
+    public DocumentVersion Version { get; set; }
+
+    public RunV2(DB? db=null) {
+        this.InitOneToMany(()=>this.Items,db);
+    }
+    
+    
+}
+
+public class RunItemV2:IDocumentEntity {
+    [BsonId]
+    public string WaferId { get; set; }
+    public One<RunV2>? Run { get; set; }
+    public object GenerateNewID()=>string.Empty;
+    public DateTime ModifiedOn { get; set; }
+    public DateTime CreatedOn { get; set; }
+    public BsonDocument? AdditionalData { get; set; }
+    public DocumentVersion Version { get; set; }
+}
+
+
+
 public class TemplateRun : IDocumentEntity {
     [BsonId]
     public string WaferId { get; set; }

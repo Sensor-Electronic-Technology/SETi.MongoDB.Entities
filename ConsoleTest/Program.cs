@@ -16,7 +16,20 @@ using NCalcExtensions;
 await GenerateEpiData("B03", "A06", "A07");
 Console.WriteLine("EPI Data Generated");*/
 //await TestDatabaseMigrations();
+
+
 var db = await DB.InitAsync("mongo-dev-test", new() { Server = new("172.20.3.41", 27017), });
+
+using (var tx = db.Transaction()) {
+    await tx.SaveAsync(
+        new Item() {
+            Name = "Andrew ELmendorf",
+            Value = 542
+        });
+    
+    
+}
+
 
 /*var runs=await db.Find<EpiRun>().ExecuteAsync();
 
@@ -24,18 +37,83 @@ var waferIds = runs.SelectMany(e => e.EpiWafers);
 
 Console.WriteLine(string.Join(',',waferIds.Select(e=>e.WaferIdV)));*/
 
-await db.DropCollectionAsync<TypeConfiguration>();
+/*await db.DropCollectionAsync<TypeConfiguration>();
 await db.DropCollectionAsync<DocumentMigration>();
 await db.DropCollectionAsync<EpiRun>();
 await db.DropCollectionAsync<EpiWafer>();
 await db.DropCollectionAsync<QuickTest>();
 await db.DropCollectionAsync<XrdData>();
-await GenerateEpiWaferData("B01");
+await GenerateEpiWaferData("B01");*/
 
 /*await BuildMigrationRefCollectionProp();
 await db.ApplyMigrations();*/
 /*await GenerateEpiData();
 await DynamicQueryTesting();*/
+
+async Task TestTransferDataToNewDatabase() {
+    var db = await DB.InitAsync("mongo-dev-test", new() { Server = new("172.20.3.41", 27017), });
+var dbNew = await DB.InitAsync("mongo-dev-test_new", new() { Server = new("172.20.3.41", 27017), });
+
+
+/*
+await db.DropCollectionAsync<EpiRun>();
+await db.DropCollectionAsync<EpiWafer>();
+await db.DropCollectionAsync<XrdData>();
+await db.DropCollectionAsync<QuickTest>();
+*/
+
+await dbNew.DropCollectionAsync<RunV2>();
+await dbNew.DropCollectionAsync<RunItemV2>();
+
+List<WriteModel<RunV2>> runInserts = [];
+List<WriteModel<RunItemV2>> runItemInserts = [];
+List<WriteModel<JoinRecord>> runJoinInserts = [];
+
+var cursor = await db.Find<Run>().ExecuteCursorAsync();
+
+while (await cursor.MoveNextAsync()) {
+    foreach (var data in cursor.Current) {
+        var run = new RunV2() {
+            WaferRunId = data.WaferRunId
+        };
+        
+        var runItemsOld=await data.Items.ChildrenQueryable().ToListAsync();
+        DB.ChangeDefaultDatabase("mongo-dev-test_new");
+        var runItems = runItemsOld.Select(r => new RunItemV2() {
+            WaferId = r.WaferId,
+            Run = r.Run == null ? null : new One<RunV2>(r.Run.ID),
+        });
+        runJoinInserts.AddRange(run.Items.BulkAddModel(runItems));
+        runInserts.Add(new InsertOneModel<RunV2>(run));
+        runItemInserts.AddRange(runItems.Select(e=>new InsertOneModel<RunItemV2>(e)));
+    }
+}
+
+
+/*for (int i = 0; i < 10; i++) {
+    
+    var run = new Run() {
+        WaferRunId = $"B01-000{i}"
+    };
+    List<RunItem> runItems = [];
+    for (int x = 0; x < 10; x++) {
+        runItems.Add(new RunItem() {
+            WaferId = run.WaferRunId + $"-0{x}",
+            Run = new One<Run>(run.WaferRunId)
+        });
+    }
+    runJoinInserts.AddRange(run.Items.BulkAddModel(runItems));
+    runInserts.Add(new InsertOneModel<Run>(run));
+    runItemInserts.AddRange(runItems.Select(e=>new InsertOneModel<RunItem>(e)));
+}*/
+
+await dbNew.Collection<RunV2>().BulkWriteAsync(runInserts);
+await dbNew.Collection<RunItemV2>().BulkWriteAsync(runItemInserts);
+var joinCollection=db.GetReferenceCollection<RunV2,RunItemV2>(e=>e.Items);
+Console.WriteLine($"{joinCollection.CollectionNamespace.FullName}");
+await joinCollection.BulkWriteAsync(runJoinInserts);
+Console.WriteLine("Check database");
+}
 
 async Task TestDatabaseMigrations() {
     var db = await DB.InitAsync("mongo-dev-test", new() { Server = new("172.20.3.41", 27017), });
