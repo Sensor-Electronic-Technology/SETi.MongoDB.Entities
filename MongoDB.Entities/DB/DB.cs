@@ -46,7 +46,7 @@ public partial class DB {
     static MongoClientSettings _defaultClientSettings = null!; // to be set on first InitAsync call
     static DB _defaultInstance = null!;                        // to be set on first InitAsync call
     readonly IMongoDatabase _mongoDb;
-    private static readonly ILogger _logger = AppLogger.CreateLogger("DB");
+    /*private static readonly ILogger _logger = AppLogger.CreateLogger("DB");*/
     public static bool LoggingEnabled { get; set; }
 
     protected DB(DB source) {
@@ -305,7 +305,7 @@ public partial class DB {
     protected virtual Action<UpdateBase<T>>? OnBeforeUpdate<T>() where T : IEntity
         => null;
 
-    /// <summary>
+    /*/// <summary>
     /// Internal logger for DB
     /// </summary>
     /// <param name="logLevel"></param>
@@ -319,13 +319,14 @@ public partial class DB {
         if (LoggingEnabled) {
             _logger.Log(logLevel: logLevel, message: message, exception: exception, args: args);
         }
-    }
+    }*/
 
     private static void Log(LogLevel logLevel,
                             [StructuredMessageTemplate] string message,
                             params object[] args) {
         if (LoggingEnabled) {
-            _logger.Log(logLevel: logLevel, message: message, args: args);
+            Console.WriteLine(message);
+            //_logger.Log(logLevel: logLevel, message: message, args: args);
         }
     }
 }
