@@ -22,14 +22,7 @@ jobs:
         run: dotnet pack MongoDB.Entities/MongoDB.Entities.csproj -c Release
       - name: Publish To Nuget
         run: dotnet nuget push MongoDB.Entities/bin/Release/*.nupkg --skip-duplicate
-        
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        if: ${{ !contains(github.ref, 'beta') }}
-        with:
-          draft: false
-          name: ${{ github.ref_name }} Release
-          body_path: changelog.md
+      
 
       # - name: Create Release
       #   uses: softprops/action-gh-release@v2
