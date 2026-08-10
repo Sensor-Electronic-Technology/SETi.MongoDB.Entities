@@ -6,10 +6,11 @@
         <!--<TargetFramework>netstandard2.1</TargetFramework>-->
         <TargetFramework>net10.0</TargetFramework>
         <RootNamespace>MongoDB.Entities</RootNamespace>
-        <AssemblyName>MongoDB.Entities</AssemblyName>
+        <AssemblyName>SETi.MongoDB.Entities</AssemblyName>
         <PackageId>SETi.MongoDB.Entities</PackageId>
         <Product>SETi.MongoDB.Entities</Product>
         <RepositoryType>git</RepositoryType>
+        <RepositoryUrl>https://github.com/Sensor-Electronic-Technology/SETi.MongoDB.Entities.git</RepositoryUrl>
         <PublishRepositoryUrl>true</PublishRepositoryUrl>
         <Authors>Đĵ ΝιΓΞΗΛψΚ,Andrew Elmendorf(SETi Version)</Authors>
         <Description>A data access library for MongoDB with an elegant api, LINQ support and built-in entity relationship management.</Description>
